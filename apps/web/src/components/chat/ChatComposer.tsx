@@ -187,7 +187,10 @@ import { useComposerPathSearch } from "../../lib/composerPathSearchState";
 import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import {
   getRestingComposerImagePreviewCounts,
+  resolveComposerRestingControlsArrivalTiming,
+  resolveComposerRestingTransitionSettings,
   resolveRestingComposerControlsLayout,
+  shouldAnimateComposerContextStripArrival,
   shouldAnimateComposerRestingTransition,
   shouldUseCompactComposerPrimaryActions,
   shouldUseCompactComposerFooter,
@@ -405,13 +408,14 @@ function useComposerRestingTransition(
   isResting: boolean,
   restingControlsRef: React.RefObject<HTMLDivElement | null>,
   onOverlayHeightChange: (height: number) => void,
-  animationsActive: boolean,
+  motionAllowed: boolean,
   animationDurationMs: number,
 ) {
   const elementRef = useRef<HTMLDivElement>(null);
   const isCollapsedRef = useRef(isCollapsed);
   const previousCollapsedRef = useRef(isCollapsed);
   const previousRestingRef = useRef(isResting);
+  const previousContextStripVisibleRef = useRef<boolean | null>(null);
   const previousHeightRef = useRef<number | null>(null);
   const previousContentOffsetsRef = useRef<{
     promptFromTop: number | null;
@@ -516,6 +520,12 @@ function useComposerRestingTransition(
       // of a ChatView re-render on every animation frame.
       const overlay = element.closest<HTMLElement>('[data-chat-composer-overlay="true"]');
       const overlayHeight = overlay?.getBoundingClientRect().height ?? null;
+      const contextStrip =
+        overlay?.querySelector<HTMLElement>('[data-slot="composer-context-strip"]') ?? null;
+      const contextStripIsVisible =
+        contextStrip !== null &&
+        contextStrip.getClientRects().length > 0 &&
+        getComputedStyle(contextStrip).visibility !== "hidden";
       if (overlayHeight !== null) {
         onOverlayHeightChange(overlayHeight);
       }
@@ -533,7 +543,7 @@ function useComposerRestingTransition(
 
       if (
         shouldAnimate &&
-        animationsActive &&
+        motionAllowed &&
         previousHeight !== null &&
         Math.abs(previousHeight - nextHeight) >= 0.5
       ) {
@@ -650,21 +660,46 @@ function useComposerRestingTransition(
             );
           }
 
-          // The footer controls teleport between the composer footer and the
-          // context strip below it in a single commit. Fading the arriving
-          // cluster in along its direction of travel reads as one continuous
-          // move instead of a pop. Collapsing controls land in empty strip
-          // space and can appear immediately, but expanding controls return
-          // to the bottom row the prompt still occupies while the surface is
-          // short, so they stay hidden through the first half of the tween
-          // and fade in once the geometry has mostly settled.
+          // A strip that enters with the collapsed surface fades in as one
+          // layer. If it was already visible, only the moving controls fade.
+          // Returning controls get a short head start before their fade so
+          // they appear as the surface finishes opening.
+          const contextStripEntered = shouldAnimateComposerContextStripArrival({
+            isCollapsing: nextIsCollapsed,
+            contextStripIsVisible,
+            wasContextStripVisible: previousContextStripVisibleRef.current,
+          });
+          if (contextStripEntered && contextStrip) {
+            // The strip and the composer resize together. Fading its backdrop
+            // and contents as one layer keeps a newly appearing lower panel
+            // from popping ahead of the controls it carries.
+            stateChangeAnimations.push(
+              contextStrip.animate(
+                [
+                  { opacity: 0, transform: "translateY(4px)" },
+                  { opacity: 1, transform: "none" },
+                ],
+                {
+                  duration,
+                  easing: COMPOSER_RESTING_TRANSITION_EASING,
+                },
+              ),
+            );
+          }
+
           const arrivingControls = nextIsCollapsed
-            ? restingControlsRef.current
+            ? contextStripEntered
+              ? null
+              : restingControlsRef.current
             : element.querySelector<HTMLElement>('[data-chat-composer-controls="left"]');
           if (arrivingControls) {
             const drift = nextIsCollapsed
               ? -COMPOSER_RESTING_CONTROLS_ARRIVAL_DRIFT_PX
               : COMPOSER_RESTING_CONTROLS_ARRIVAL_DRIFT_PX;
+            const arrivalTiming = resolveComposerRestingControlsArrivalTiming({
+              durationMs: duration,
+              isCollapsing: nextIsCollapsed,
+            });
             stateChangeAnimations.push(
               arrivingControls.animate(
                 [
@@ -672,8 +707,8 @@ function useComposerRestingTransition(
                   { opacity: 1, transform: "none" },
                 ],
                 {
-                  duration: nextIsCollapsed ? duration : duration / 2,
-                  delay: nextIsCollapsed ? 0 : duration / 2,
+                  duration: arrivalTiming.durationMs,
+                  delay: arrivalTiming.delayMs,
                   fill: "backwards",
                   easing: COMPOSER_RESTING_TRANSITION_EASING,
                 },
@@ -736,6 +771,7 @@ function useComposerRestingTransition(
 
       previousCollapsedRef.current = nextIsCollapsed;
       previousHeightRef.current = nextHeight;
+      previousContextStripVisibleRef.current = contextStripIsVisible;
       previousContentOffsetsRef.current = {
         promptFromTop: nextPromptTop === null ? null : nextPromptTop - nextRect.top,
         promptHeight: nextPromptRect?.height ?? null,
@@ -744,7 +780,7 @@ function useComposerRestingTransition(
     },
     [
       animationDurationMs,
-      animationsActive,
+      motionAllowed,
       clearTransitionStyles,
       onOverlayHeightChange,
       restingControlsRef,
@@ -4826,15 +4862,18 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         ) : null}
       </div>
     ) : null;
-  const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
-    usePanelAnimationSettings();
+  const { motionAllowed, durationMs: panelAnimationDurationMs } = usePanelAnimationSettings();
+  const composerRestingTransition = resolveComposerRestingTransitionSettings({
+    configuredDurationMs: panelAnimationDurationMs,
+    motionAllowed,
+  });
   const composerMainSurfaceRef = useComposerRestingTransition(
     composerControlsInStrip,
     isComposerResting,
     restingComposerControlsRef,
     onComposerOverlayHeightChange,
-    panelAnimationsActive,
-    panelAnimationDurationMs,
+    composerRestingTransition.active,
+    composerRestingTransition.durationMs,
   );
   const canTrackComposerScrollGesture =
     routeKind === "server" && activeThreadId !== null && !isMobileViewport;

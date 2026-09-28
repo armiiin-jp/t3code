@@ -66,6 +66,45 @@ export function shouldUseRestingComposerLayout(input: {
  * the 48px footer leaves flow.
  */
 export const COMPOSER_RESTING_EXPANSION_MIN_PX = 94;
+export const COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS = 180;
+const COMPOSER_RESTING_CONTROLS_EXPANSION_REVEAL_DELAY_RATIO = 0.2;
+
+export function shouldAnimateComposerContextStripArrival(input: {
+  isCollapsing: boolean;
+  contextStripIsVisible: boolean;
+  wasContextStripVisible: boolean | null;
+}): boolean {
+  return (
+    input.isCollapsing && input.contextStripIsVisible && input.wasContextStripVisible === false
+  );
+}
+
+export function resolveComposerRestingControlsArrivalTiming(input: {
+  durationMs: number;
+  isCollapsing: boolean;
+}): { durationMs: number; delayMs: number } {
+  const delayMs = input.isCollapsing
+    ? 0
+    : input.durationMs * COMPOSER_RESTING_CONTROLS_EXPANSION_REVEAL_DELAY_RATIO;
+
+  return {
+    durationMs: input.durationMs - delayMs,
+    delayMs,
+  };
+}
+
+export function resolveComposerRestingTransitionSettings(input: {
+  configuredDurationMs: number;
+  motionAllowed: boolean;
+}): { active: boolean; durationMs: number } {
+  return {
+    active: input.motionAllowed,
+    durationMs:
+      input.configuredDurationMs > 0
+        ? input.configuredDurationMs
+        : COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS,
+  };
+}
 
 /**
  * The space the timeline reserves at its end for the composer overlay.

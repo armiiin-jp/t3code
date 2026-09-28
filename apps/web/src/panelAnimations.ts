@@ -71,11 +71,13 @@ export function observeResponsiveBreakpointFade(options: {
 export function usePanelAnimationSettings(): {
   active: boolean;
   durationMs: PanelAnimationDurationMs;
+  motionAllowed: boolean;
 } {
   const durationMs = useClientSettings((settings) => settings.panelAnimationDurationMs);
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const suppressed = useContext(PanelAnimationSuppressionContext);
-  return { active: durationMs > 0 && !prefersReducedMotion && !suppressed, durationMs };
+  const motionAllowed = !prefersReducedMotion && !suppressed;
+  return { active: durationMs > 0 && motionAllowed, durationMs, motionAllowed };
 }
 
 /** Keeps closing panel content mounted until its opt-in transition ends. */
