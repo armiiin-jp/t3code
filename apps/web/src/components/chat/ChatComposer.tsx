@@ -849,7 +849,27 @@ function useComposerRestingTransition(
     });
     observer.observe(element);
     if (body) observer.observe(body);
-    return () => observer.disconnect();
+    const contextStrip = element
+      .closest<HTMLElement>('[data-chat-composer-overlay="true"]')
+      ?.querySelector<HTMLElement>('[data-slot="composer-context-strip"]');
+    const contextStripObserver = contextStrip
+      ? new MutationObserver(() => {
+          if (previousCollapsedRef.current !== isCollapsedRef.current) return;
+          previousContextStripVisibleRef.current =
+            contextStrip.getClientRects().length > 0 &&
+            getComputedStyle(contextStrip).visibility !== "hidden";
+        })
+      : null;
+    if (contextStrip && contextStripObserver) {
+      contextStripObserver.observe(contextStrip, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
+    return () => {
+      observer.disconnect();
+      contextStripObserver?.disconnect();
+    };
   }, [transitionToCurrentGeometry]);
 
   useEffect(() => {
