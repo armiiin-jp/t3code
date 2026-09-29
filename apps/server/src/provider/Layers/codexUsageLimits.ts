@@ -218,6 +218,7 @@ function codexUsageLimitNextStep(rateLimitReachedType: string | null | undefined
 export function codexUsageLimitMessage(
   snapshot: CodexRateLimitSnapshot | undefined,
   atIso: string,
+  providerName = "Codex",
 ): string {
   const atMs = Date.parse(atIso);
   const windows = snapshot && Number.isFinite(atMs) ? codexRateLimitsToWindows(snapshot) : [];
@@ -230,5 +231,5 @@ export function codexUsageLimitMessage(
     latestResetMs = resetMs;
     reset = ` The ${window.kind} limit resets in ${formatCodexUsageLimitWait(resetMs - atMs)}.`;
   }
-  return `Codex usage limit reached.${reset}${codexUsageLimitNextStep(snapshot?.rateLimitReachedType)}`;
+  return `${providerName} usage limit reached.${reset}${codexUsageLimitNextStep(snapshot?.rateLimitReachedType)}`;
 }

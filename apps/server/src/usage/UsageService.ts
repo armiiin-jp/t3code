@@ -17,6 +17,7 @@ import * as NodeOS from "node:os";
 import {
   ClaudeSettings,
   CodexSettings,
+  GapCodeSettings,
   type ProviderInstanceConfig,
   ProviderInstanceId,
   USAGE_CONTRACT_VERSION,
@@ -257,6 +258,7 @@ export const make = Effect.gen(function* () {
   );
 
   /** Resolves the transcript directory for each provider. */
+  const decodeGapCodeSettings = Schema.decodeUnknownOption(GapCodeSettings);
   const resolveTranscriptDirs = Effect.fn("UsageService.resolveTranscriptDirs")(function* (
     settings: ServerSettingsValue,
     retentionCutoffMs: number,
@@ -268,7 +270,7 @@ export const make = Effect.gen(function* () {
       fileName?: string;
     }> = [];
     const seen = new Set<string>();
-    for (const driver of ["claudeAgent", "codex", "grok"] as const) {
+    for (const driver of ["claudeAgent", "codex", "gapcode", "grok"] as const) {
       // Disabled accounts still have history. Explicit default slots replace
       // the legacy settings, just as they do in the provider registry.
       const instances: Array<
@@ -276,7 +278,7 @@ export const make = Effect.gen(function* () {
       > = Object.entries(settings.providerInstances)
         .filter(([, instance]) => instance.driver === driver)
         .map(([id, instance]) => ({ ...instance, instanceId: ProviderInstanceId.make(id) }));
-      if (!Object.hasOwn(settings.providerInstances, driver)) {
+      if (driver !== "gapcode" && !Object.hasOwn(settings.providerInstances, driver)) {
         instances.push({
           config: settings.providers[driver],
           instanceId: ProviderInstanceId.make(driver),
@@ -300,6 +302,11 @@ export const make = Effect.gen(function* () {
               : codexConfig,
           );
           home = layout.sharedHomePath;
+        } else if (driver === "gapcode") {
+          if (Option.isNone(decodeGapCodeSettings(instance.config ?? {}))) continue;
+          home = expandHomePath(
+            environment.GAPCODE_HOME?.trim() || path.join(NodeOS.homedir(), ".gapcode"),
+          );
         } else if (driver === "claudeAgent") {
           const decoded = decodeClaudeSettings(instance.config ?? {});
           if (Option.isNone(decoded)) continue;

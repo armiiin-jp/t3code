@@ -111,14 +111,15 @@ and enable the provider you want. Installation, login, and configuration belong
 to that environment's machine, even when you connect from a phone or another
 computer.
 
-| Provider    | Install and authenticate                                                                                                                                  |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider    | Install and authenticate                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------- |
 | Codex       | [Connect with ChatGPT](./providers-codex.md#connect-with-chatgpt), or install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`. |
-| Claude      | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`.                                                              |
-| Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                                                                                     |
-| Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                                                                                        |
-| OpenCode    | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                                                                                  |
-| Antigravity | Install and sign in with Google from T3 Code's provider settings.                                                                                         |
+| GapCode     | Install GapCode CLI, then run `gapcode login`. Add it in Settings > Providers.               |
+| Claude      | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
+| Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                        |
+| Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                           |
+| OpenCode    | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                     |
+| Antigravity | Install and sign in with Google from T3 Code's provider settings.                            |
 
 Provider CLIs must be on the server's `PATH`. If T3 Code cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
@@ -145,7 +146,7 @@ base URL. Mark secret values as sensitive; after saving, T3 Code does not displa
 their original values.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
-[Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
+[GapCode](./providers-gapcode.md), [Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
 [Antigravity](./providers-antigravity.md).
 
 ## Next steps

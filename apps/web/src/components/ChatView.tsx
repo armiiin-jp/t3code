@@ -7493,7 +7493,7 @@ export default function ChatView(props: ChatViewProps) {
       elementContextCount: composerPreviewAnnotations.length + composerReviewComments.length,
     });
     const feedbackCommand =
-      ctxSelectedProvider === "codex" &&
+      (ctxSelectedProvider === "codex" || ctxSelectedProvider === "gapcode") &&
       composerImages.length === 0 &&
       composerFiles.length === 0 &&
       sendableComposerTerminalContexts.length === 0 &&
@@ -7506,7 +7506,7 @@ export default function ChatView(props: ChatViewProps) {
         toastManager.add(
           stackedThreadToast({
             type: "warning",
-            title: "Start a Codex thread first",
+            title: `Start a ${ctxSelectedProvider === "gapcode" ? "GapCode" : "Codex"} thread first`,
             description: "Send a message before you submit feedback.",
           }),
         );
@@ -7518,6 +7518,7 @@ export default function ChatView(props: ChatViewProps) {
           id: newMessageId(),
           command: trimmed,
           createdAt: new Date().toISOString(),
+          provider: ctxSelectedProvider === "gapcode" ? "gapcode" : "codex",
         },
         clearDraft: () => {
           promptRef.current = "";

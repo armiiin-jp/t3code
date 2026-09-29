@@ -89,6 +89,9 @@ const PROVIDER = ProviderDriverKind.make("codex");
 
 export interface CodexAdapterLiveOptions {
   readonly instanceId?: ProviderInstanceId;
+  readonly provider?: ProviderDriverKind;
+  readonly supportsFeedback?: boolean;
+  readonly supportsUsageLimits?: boolean;
   readonly environment?: NodeJS.ProcessEnv;
   /** The provider's model list; supplies model display names for runtime info. */
   readonly models?: Effect.Effect<ReadonlyArray<ServerProviderModel>>;
@@ -145,13 +148,14 @@ interface CodexTurnTokenUsageState {
 }
 
 function mapCodexRuntimeError(
+  provider: ProviderDriverKind,
   threadId: ThreadId,
   method: string,
   error: CodexSessionRuntimeError,
 ): ProviderAdapterError {
   if (isCodexAppServerProcessExitedError(error) || isCodexAppServerTransportError(error)) {
     return new ProviderAdapterSessionClosedError({
-      provider: PROVIDER,
+      provider,
       threadId,
       cause: error,
     });
@@ -159,14 +163,14 @@ function mapCodexRuntimeError(
 
   if (isCodexSessionRuntimeThreadIdMissingError(error)) {
     return new ProviderAdapterSessionNotFoundError({
-      provider: PROVIDER,
+      provider,
       threadId,
       cause: error,
     });
   }
 
   return new ProviderAdapterRequestError({
-    provider: PROVIDER,
+    provider,
     method,
     detail: error.message,
     cause: error,
@@ -2246,7 +2250,8 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
   codexConfig: CodexSettings,
   options?: CodexAdapterLiveOptions,
 ) {
-  const boundInstanceId = options?.instanceId ?? ProviderInstanceId.make("codex");
+  const provider = options?.provider ?? PROVIDER;
+  const boundInstanceId = options?.instanceId ?? ProviderInstanceId.make(provider);
   const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const crypto = yield* Crypto.Crypto;
   const serverConfig = yield* Effect.service(ServerConfig);
@@ -2265,11 +2270,11 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
   const startSession: CodexAdapterShape["startSession"] = (input) =>
     Effect.scoped(
       Effect.gen(function* () {
-        if (input.provider !== undefined && input.provider !== PROVIDER) {
+        if (input.provider !== undefined && input.provider !== provider) {
           return yield* new ProviderAdapterValidationError({
-            provider: PROVIDER,
+            provider,
             operation: "startSession",
-            issue: `Expected provider '${PROVIDER}' but received '${input.provider}'.`,
+            issue: `Expected provider '${provider}' but received '${input.provider}'.`,
           });
         }
 
@@ -2306,6 +2311,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
         const runtimeInput: CodexSessionRuntimeOptions = {
           threadId: input.threadId,
           providerInstanceId: boundInstanceId,
+          provider,
           cwd: input.cwd ?? process.cwd(),
           ...(options?.models ? { models: options.models } : {}),
           binaryPath: effectiveConfig.binaryPath,
@@ -2354,7 +2360,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           Effect.mapError(
             (cause) =>
               new ProviderAdapterProcessError({
-                provider: PROVIDER,
+                provider,
                 threadId: input.threadId,
                 detail: cause.message,
                 cause,
@@ -2398,7 +2404,17 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
               }
             }
 
-            if (event.method === "account/rateLimits/updated") {
+            const managedError = options?.resolveRuntime
+              ? classifyCodexManagedError(event.payload)
+              : undefined;
+            if (managedError?.revoke && options?.onManagedConnectionRevoked)
+              yield* options.onManagedConnectionRevoked;
+            let usageLimitError: ProviderRuntimeEvent | undefined;
+            let usageLimitMessage: string | undefined;
+            if (
+              event.method === "account/rateLimits/updated" &&
+              options?.supportsUsageLimits !== false
+            ) {
               const limitsPayload = readPayload(
                 EffectCodexSchema.V2AccountRateLimitsUpdatedNotification,
                 event.payload,
@@ -2406,7 +2422,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
               if (limitsPayload) {
                 rateLimits = mergeCodexRateLimits(rateLimits, limitsPayload.rateLimits);
               }
-            } else if (event.method === "error") {
+            } else if (event.method === "error" && options?.supportsUsageLimits !== false) {
               const errorPayload = readPayload(
                 EffectCodexSchema.V2ErrorNotification,
                 event.payload,
@@ -2416,13 +2432,6 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
               if (errorPayload?.error.codexErrorInfo === "usageLimitExceeded") return;
             }
 
-            const managedError = options?.resolveRuntime
-              ? classifyCodexManagedError(event.payload)
-              : undefined;
-            if (managedError?.revoke && options?.onManagedConnectionRevoked)
-              yield* options.onManagedConnectionRevoked;
-            let usageLimitError: ProviderRuntimeEvent | undefined;
-            let usageLimitMessage: string | undefined;
             if (event.method === "turn/completed") {
               const completedPayload = readPayload(
                 EffectCodexSchema.V2TurnCompletedNotification,
@@ -2443,8 +2452,15 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
                     class: "provider_error",
                   },
                 };
-              } else if (turnError?.codexErrorInfo === "usageLimitExceeded") {
-                usageLimitMessage = codexUsageLimitMessage(rateLimits, event.createdAt);
+              } else if (
+                options?.supportsUsageLimits !== false &&
+                turnError?.codexErrorInfo === "usageLimitExceeded"
+              ) {
+                usageLimitMessage = codexUsageLimitMessage(
+                  rateLimits,
+                  event.createdAt,
+                  provider === PROVIDER ? "Codex" : "GapCode",
+                );
                 usageLimitError = {
                   ...runtimeEventBase(event, event.threadId),
                   type: "runtime.error",
@@ -2522,7 +2538,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           Effect.mapError(
             (cause) =>
               new ProviderAdapterProcessError({
-                provider: PROVIDER,
+                provider,
                 threadId: input.threadId,
                 detail: cause.message,
                 cause,
@@ -2563,7 +2579,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
     });
     if (!attachmentPath) {
       return yield* new ProviderAdapterRequestError({
-        provider: PROVIDER,
+        provider,
         method: "turn/start",
         detail: `Invalid attachment id '${attachment.id}'.`,
       });
@@ -2631,14 +2647,18 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
         ...(input.interactionMode !== undefined ? { interactionMode: input.interactionMode } : {}),
         ...(codexAttachments.length > 0 ? { attachments: codexAttachments } : {}),
       })
-      .pipe(Effect.mapError((cause) => mapCodexRuntimeError(input.threadId, "turn/start", cause)));
+      .pipe(
+        Effect.mapError((cause) =>
+          mapCodexRuntimeError(provider, input.threadId, "turn/start", cause),
+        ),
+      );
   });
 
   const requireSession = Effect.fn("requireSession")(function* (threadId: ThreadId) {
     const session = sessions.get(threadId);
     if (!session || session.stopped) {
       return yield* new ProviderAdapterSessionNotFoundError({
-        provider: PROVIDER,
+        provider,
         threadId,
       });
     }
@@ -2651,14 +2671,16 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(threadId, "turn/interrupt", cause),
+          : mapCodexRuntimeError(provider, threadId, "turn/interrupt", cause),
       ),
     );
 
   const compactThread = Effect.fn("compactThread")(function* (threadId: ThreadId) {
     const session = yield* requireSession(threadId);
     yield* session.runtime.compactThread.pipe(
-      Effect.mapError((cause) => mapCodexRuntimeError(threadId, "thread/compact/start", cause)),
+      Effect.mapError((cause) =>
+        mapCodexRuntimeError(provider, threadId, "thread/compact/start", cause),
+      ),
     );
   });
 
@@ -2668,7 +2690,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(threadId, "thread/read", cause),
+          : mapCodexRuntimeError(provider, threadId, "thread/read", cause),
       ),
       Effect.map((snapshot) => ({
         threadId,
@@ -2680,7 +2702,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
     if (!Number.isInteger(numTurns) || numTurns < 1) {
       return Effect.fail(
         new ProviderAdapterValidationError({
-          provider: PROVIDER,
+          provider,
           operation: "rollbackThread",
           issue: "numTurns must be an integer >= 1.",
         }),
@@ -2702,7 +2724,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(threadId, "thread/rollback", cause),
+          : mapCodexRuntimeError(provider, threadId, "thread/rollback", cause),
       ),
       Effect.map((snapshot) => ({
         threadId,
@@ -2718,9 +2740,20 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(input.threadId, "feedback/upload", cause),
+          : mapCodexRuntimeError(provider, input.threadId, "feedback/upload", cause),
       ),
     );
+  const uploadFeedbackOrReject: CodexAdapterShape["uploadFeedback"] =
+    options?.supportsFeedback === false
+      ? () =>
+          Effect.fail(
+            new ProviderAdapterValidationError({
+              provider,
+              operation: "uploadFeedback",
+              issue: "Feedback uploads are not supported by this provider.",
+            }),
+          )
+      : uploadFeedback;
 
   const respondToRequest: CodexAdapterShape["respondToRequest"] = (threadId, requestId, decision) =>
     requireSession(threadId).pipe(
@@ -2728,7 +2761,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(threadId, "item/requestApproval/decision", cause),
+          : mapCodexRuntimeError(provider, threadId, "item/requestApproval/decision", cause),
       ),
     );
 
@@ -2742,7 +2775,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       Effect.mapError((cause) =>
         cause._tag === "ProviderAdapterSessionNotFoundError"
           ? cause
-          : mapCodexRuntimeError(threadId, "item/tool/requestUserInput", cause),
+          : mapCodexRuntimeError(provider, threadId, "item/tool/requestUserInput", cause),
       ),
     );
 
@@ -2800,7 +2833,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
   );
 
   return {
-    provider: PROVIDER,
+    provider,
     capabilities: {
       sessionModelSwitch: "in-session",
       promptlessTurnContinuation: true,
@@ -2811,7 +2844,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
     interruptTurn,
     readThread,
     rollbackThread,
-    uploadFeedback,
+    uploadFeedback: uploadFeedbackOrReject,
     respondToRequest,
     respondToUserInput,
     stopSession,

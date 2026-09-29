@@ -16,6 +16,16 @@ export function ProviderIcon(props: ProviderIconProps) {
   const size = props.size ?? 16;
   const mono = isDarkMode ? "#e5e5e5" : "#171717";
 
+  if (props.provider === "gapcode") {
+    return (
+      <Image
+        source={require("../../assets/gapgpt-icon-v3.png")}
+        style={{ width: size, height: size }}
+        contentFit="contain"
+      />
+    );
+  }
+
   if (props.provider?.trim().toLowerCase() === "antigravity") {
     return (
       <Image

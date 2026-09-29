@@ -558,6 +558,12 @@ export const OpenAI: Icon = ({ className, ...props }) => (
   </svg>
 );
 
+export const GapGPT: Icon = ({ className, ...props }) => (
+  <svg {...props} viewBox="0 0 512 512" className={className}>
+    <image href="/gapgpt-icon-v3.png" width="512" height="512" />
+  </svg>
+);
+
 export const ClaudeAI: Icon = ({ className, ...props }) => (
   <svg
     {...props}

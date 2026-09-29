@@ -270,7 +270,7 @@ export async function readTranscriptRecords(
     if (
       resumeFrom !== undefined &&
       resumeFrom.resumeOffset > 0 &&
-      (provider !== "codex" || resumeFrom.codexState !== null) &&
+      ((provider !== "codex" && provider !== "gapcode") || resumeFrom.codexState !== null) &&
       (await guardMatches(handle, resumeFrom))
     ) {
       if (resumeFrom.codexState !== null) codexState = { ...resumeFrom.codexState };
@@ -279,7 +279,7 @@ export async function readTranscriptRecords(
     }
 
     const parseLine = (line: string, state: CodexScanState, out: UsageRecord[]): void => {
-      if (provider === "codex") {
+      if (provider === "codex" || provider === "gapcode") {
         if (
           !mightCarryUsage(line, provider) &&
           !line.includes('"turn_context"') &&
@@ -287,7 +287,7 @@ export async function readTranscriptRecords(
         ) {
           return;
         }
-        const record = parseCodexLine(line, state);
+        const record = parseCodexLine(line, state, provider);
         if (record !== null) out.push(record);
         return;
       }
@@ -406,7 +406,7 @@ export async function readTranscriptRecords(
         resumeOffset,
         guardLength,
         guardHash,
-        codexState: provider === "codex" ? codexState : null,
+        codexState: provider === "codex" || provider === "gapcode" ? codexState : null,
       },
       resumed,
     };

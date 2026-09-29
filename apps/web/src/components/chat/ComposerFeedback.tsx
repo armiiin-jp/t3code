@@ -28,15 +28,16 @@ export function feedbackBannerItem(
           size="xs"
           variant="ghost"
           onClick={() => {
-            void writeTextToClipboard(submission.feedbackId, "Codex feedback thread ID").catch(
-              (error: unknown) => {
-                toastManager.add({
-                  type: "error",
-                  title: "Could not copy thread ID",
-                  description: error instanceof Error ? error.message : "An error occurred.",
-                });
-              },
-            );
+            void writeTextToClipboard(
+              submission.feedbackId,
+              `${submission.provider === "gapcode" ? "GapCode" : "Codex"} feedback thread ID`,
+            ).catch((error: unknown) => {
+              toastManager.add({
+                type: "error",
+                title: "Could not copy thread ID",
+                description: error instanceof Error ? error.message : "An error occurred.",
+              });
+            });
           }}
         >
           Copy ID

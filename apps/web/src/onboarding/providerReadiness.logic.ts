@@ -1,6 +1,7 @@
 import {
   ClaudeSettings,
   CodexSettings,
+  GapCodeSettings,
   type ExecutionEnvironmentPlatformOs,
   type ServerProvider,
   type ServerSettings,
@@ -10,6 +11,7 @@ import * as Schema from "effect/Schema";
 
 const decodeClaudeSettings = Schema.decodeUnknownOption(ClaudeSettings);
 const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
+const decodeGapCodeSettings = Schema.decodeUnknownOption(GapCodeSettings);
 const SAFE_SHELL_BINARY_PATTERN = /^[A-Za-z0-9_./:\\-]+$/;
 
 function quoteProviderBinary(
@@ -125,6 +127,12 @@ export function resolveOnboardingProviderLoginCommand(
     );
     const binaryPath = Option.isSome(config) ? config.value.binaryPath : "codex";
     return `${quoteProviderBinary(binaryPath, "codex", platform)} login`;
+  }
+
+  if (provider.driver === "gapcode") {
+    const config = decodeGapCodeSettings(instance?.config ?? {});
+    const binaryPath = Option.isSome(config) ? config.value.binaryPath : "gapcode";
+    return `${quoteProviderBinary(binaryPath, "gapcode", platform)} login`;
   }
 
   return provider.driver;

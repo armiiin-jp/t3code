@@ -4,6 +4,7 @@ import {
   ClaudeAI,
   CursorIcon,
   GrokIcon,
+  GapGPT,
   Icon,
   OpenAI,
   OpenCodeIcon,
@@ -11,6 +12,7 @@ import {
 
 export const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {
   [ProviderDriverKind.make("codex")]: OpenAI,
+  [ProviderDriverKind.make("gapcode")]: GapGPT,
   [ProviderDriverKind.make("claudeAgent")]: ClaudeAI,
   [ProviderDriverKind.make("opencode")]: OpenCodeIcon,
   [ProviderDriverKind.make("cursor")]: CursorIcon,

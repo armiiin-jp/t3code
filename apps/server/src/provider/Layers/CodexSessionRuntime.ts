@@ -173,6 +173,7 @@ type CodexThreadItem =
 export interface CodexSessionRuntimeOptions {
   readonly threadId: ThreadId;
   readonly providerInstanceId?: ProviderInstanceId;
+  readonly provider?: ProviderDriverKind;
   readonly binaryPath: string;
   readonly homePath?: string;
   readonly launchArgs?: string;
@@ -1304,6 +1305,7 @@ export const makeCodexSessionRuntime = (
   ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto | Scope.Scope
 > =>
   Effect.gen(function* () {
+    const provider = options.provider ?? PROVIDER;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const runtimeScope = yield* Scope.Scope;
     const crypto = yield* Crypto.Crypto;
@@ -1379,7 +1381,7 @@ export const makeCodexSessionRuntime = (
 
     const sessionCreatedAt = yield* nowIso;
     const initialSession = {
-      provider: PROVIDER,
+      provider,
       ...(options.providerInstanceId ? { providerInstanceId: options.providerInstanceId } : {}),
       status: "connecting",
       runtimeMode: options.runtimeMode,
@@ -1398,7 +1400,7 @@ export const makeCodexSessionRuntime = (
         const id = yield* randomUUIDv4("provider-event");
         return yield* offerEvent({
           id: EventId.make(id),
-          provider: PROVIDER,
+          provider,
           ...(options.providerInstanceId ? { providerInstanceId: options.providerInstanceId } : {}),
           createdAt: yield* nowIso,
           ...event,

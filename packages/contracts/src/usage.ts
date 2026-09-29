@@ -33,6 +33,7 @@ export const USAGE_MERGE_COMPATIBLE_SINCE = 4 as const;
 export const UsageProviderKind = Schema.Literals([
   "claude",
   "codex",
+  "gapcode",
   "grok",
   "cursor",
   "opencode",

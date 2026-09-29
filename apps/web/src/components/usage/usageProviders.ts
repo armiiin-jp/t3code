@@ -5,6 +5,7 @@ import {
   ClaudeAI,
   CursorIcon,
   GrokIcon,
+  GapGPT,
   type Icon,
   OpenAI,
   OpenCodeIcon,
@@ -27,6 +28,7 @@ export const PROVIDER_PRESENTATION = {
     color: "var(--contrast-foreground)",
     mark: OpenAI,
   },
+  gapcode: { label: "GapCode", color: "#0891b2", mark: GapGPT },
   claude: {
     label: "Claude Code",
     color: "#d97757",
