@@ -17,6 +17,7 @@ import * as NodeOS from "node:os";
 import {
   ClaudeSettings,
   CodexSettings,
+  GapCodeSettings,
   type ProviderInstanceConfig,
   USAGE_CONTRACT_VERSION,
   ProviderInstanceId,
@@ -257,6 +258,7 @@ export const make = Effect.gen(function* () {
   );
 
   /** Resolves the transcript directory for each provider. */
+  const decodeGapCodeSettings = Schema.decodeUnknownOption(GapCodeSettings);
   const resolveTranscriptDirs = Effect.fn("UsageService.resolveTranscriptDirs")(function* (
     settings: ServerSettingsValue,
     retentionCutoffMs: number,
@@ -268,12 +270,12 @@ export const make = Effect.gen(function* () {
       fileName?: string;
     }> = [];
     const seen = new Set<string>();
-    for (const driver of ["claudeAgent", "codex", "grok"] as const) {
+    for (const driver of ["claudeAgent", "codex", "gapcode", "grok"] as const) {
       // Disabled accounts still have history. Explicit default slots replace
       // the legacy settings, just as they do in the provider registry.
       const instances: Array<Pick<ProviderInstanceConfig, "config" | "environment">> =
         Object.values(settings.providerInstances).filter((instance) => instance.driver === driver);
-      if (!Object.hasOwn(settings.providerInstances, driver)) {
+      if (driver !== "gapcode" && !Object.hasOwn(settings.providerInstances, driver)) {
         instances.push({ config: settings.providers[driver] });
       }
       for (const instance of instances) {
@@ -291,6 +293,11 @@ export const make = Effect.gen(function* () {
               : config,
           );
           home = layout.sharedHomePath;
+        } else if (driver === "gapcode") {
+          if (Option.isNone(decodeGapCodeSettings(instance.config ?? {}))) continue;
+          home = expandHomePath(
+            environment.GAPCODE_HOME?.trim() || path.join(NodeOS.homedir(), ".gapcode"),
+          );
         } else if (driver === "claudeAgent") {
           const decoded = decodeClaudeSettings(instance.config ?? {});
           if (Option.isNone(decoded)) continue;

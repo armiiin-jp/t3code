@@ -148,6 +148,7 @@ const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CURSOR_DRIVER_KIND = ProviderDriverKind.make("cursor");
 const GROK_DRIVER_KIND = ProviderDriverKind.make("grok");
 const OPENCODE_DRIVER_KIND = ProviderDriverKind.make("opencode");
+const GAPCODE_DRIVER_KIND = ProviderDriverKind.make("gapcode");
 
 export const DEFAULT_MODEL = "gpt-6-astra";
 
@@ -217,6 +218,7 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
 
 export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>> = {
   [ProviderDriverKind.make("antigravity")]: "Antigravity",
+  [GAPCODE_DRIVER_KIND]: "GapCode",
   [CODEX_DRIVER_KIND]: "Codex",
   [CLAUDE_DRIVER_KIND]: "Claude",
   [CURSOR_DRIVER_KIND]: "Cursor",

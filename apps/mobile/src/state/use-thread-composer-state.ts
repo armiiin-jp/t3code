@@ -389,12 +389,18 @@ export function useThreadComposerState() {
     );
     const feedbackCommand =
       attachments.length === 0 &&
-      (provider?.driver === "codex" || thread.session?.providerName === "codex")
+      (provider?.driver === "codex" ||
+        provider?.driver === "gapcode" ||
+        thread.session?.providerName === "codex" ||
+        thread.session?.providerName === "gapcode")
         ? parseCodexFeedbackCommand(text)
         : null;
     if (feedbackCommand) {
       if (thread.session === null) {
-        Alert.alert("Start a Codex thread first", "Send a message before you submit feedback.");
+        Alert.alert(
+          `Start a ${provider?.driver === "gapcode" ? "GapCode" : "Codex"} thread first`,
+          "Send a message before you submit feedback.",
+        );
         return null;
       }
       const metadata = makeQueuedMessageMetadata();
@@ -403,6 +409,7 @@ export function useThreadComposerState() {
           id: MessageId.make(metadata.messageId),
           command: text,
           createdAt: metadata.createdAt,
+          provider: provider?.driver === "gapcode" ? "gapcode" : "codex",
         },
         clearDraft: () => clearComposerDraftContent(threadKey),
         onUpdate: (submission) => {

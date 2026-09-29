@@ -114,6 +114,7 @@ computer.
 | Provider    | Install and authenticate                                                                     |
 | ----------- | -------------------------------------------------------------------------------------------- |
 | Codex       | Install [Codex CLI](https://developers.openai.com/codex/cli), then run `codex login`.        |
+| GapCode     | Install GapCode CLI, then run `gapcode login`. Add it in Settings > Providers.               |
 | Claude      | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
 | Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                        |
 | Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                           |
@@ -144,7 +145,7 @@ base URL. Mark secret values as sensitive; after saving, T3 Code does not displa
 their original values.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
-[Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
+[GapCode](./providers-gapcode.md), [Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
 [Antigravity](./providers-antigravity.md).
 
 ## Next steps

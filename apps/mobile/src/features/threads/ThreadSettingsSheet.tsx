@@ -95,6 +95,7 @@ import {
 const PRIMARY_PROVIDER_DRIVERS: ReadonlySet<string> = new Set([
   "claudeAgent",
   "codex",
+  "gapcode",
   "antigravity",
 ]);
 /**

@@ -10,6 +10,7 @@ type CodexFeedbackSubmissionDetails = {
   readonly id: MessageId;
   readonly command: string;
   readonly createdAt: string;
+  readonly provider?: "codex" | "gapcode";
 };
 
 export type CodexFeedbackSubmission = CodexFeedbackSubmissionDetails &
@@ -29,18 +30,22 @@ export function parseCodexFeedbackCommand(text: string): { readonly reason?: str
 }
 
 export function codexFeedbackNotice(submission: CodexFeedbackSubmission) {
+  const recipient = submission.provider === "gapcode" ? "GapCode" : "OpenAI";
   switch (submission.status) {
     case "interrupted":
       return null;
     case "uploading":
-      return { title: "Sending feedback to OpenAI...", description: undefined };
+      return { title: `Sending feedback to ${recipient}...`, description: undefined };
     case "sent":
       return {
-        title: "Feedback sent to OpenAI",
+        title: `Feedback sent to ${recipient}`,
         description: `Thread ID: ${submission.feedbackId}`,
       };
     case "failed":
-      return { title: "Could not send feedback to OpenAI", description: submission.errorMessage };
+      return {
+        title: `Could not send feedback to ${recipient}`,
+        description: submission.errorMessage,
+      };
   }
 }
 

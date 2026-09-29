@@ -105,7 +105,8 @@ export function buildComposerSlashCommandItems(input: {
     }
     if (
       !input.hasThread &&
-      input.selectedProviderStatus?.driver === "codex" &&
+      (input.selectedProviderStatus?.driver === "codex" ||
+        input.selectedProviderStatus?.driver === "gapcode") &&
       command.name === "feedback"
     ) {
       continue;

@@ -628,6 +628,36 @@ export const CodexSettings = makeProviderSettingsSchema(
 );
 export type CodexSettings = typeof CodexSettings.Type;
 
+export const GapCodeSettings = makeProviderSettingsSchema(
+  {
+    enabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(true)),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    binaryPath: makeBinaryPathSetting("gapcode").pipe(
+      Schema.annotateKey({
+        title: "Binary path",
+        description: "Path to the GapCode CLI used by this instance.",
+        providerSettingsForm: { placeholder: "gapcode", clearWhenEmpty: "omit" },
+      }),
+    ),
+    launchArgs: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "Launch arguments",
+        description: "Additional CLI arguments passed to GapCode app-server on session start.",
+        providerSettingsForm: { clearWhenEmpty: "omit" },
+      }),
+    ),
+    customModels: Schema.Array(CustomModelSetting).pipe(
+      Schema.withDecodingDefault(Effect.succeed([])),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+  },
+  { order: ["binaryPath", "launchArgs"] },
+);
+export type GapCodeSettings = typeof GapCodeSettings.Type;
+
 // Empty, or an integer from 100,000 to 1,000,000. Shared by the full
 // Claude settings schema and its patch so an out-of-range value fails at
 // the update that introduced it.

@@ -50,7 +50,9 @@ export function ComposerFeedback({
           <Pressable
             accessibilityRole="button"
             onPress={() =>
-              copyTextWithHaptic(submission.feedbackId, { target: "Codex feedback thread ID" })
+              copyTextWithHaptic(submission.feedbackId, {
+                target: `${submission.provider === "gapcode" ? "GapCode" : "Codex"} feedback thread ID`,
+              })
             }
             className="self-start py-1 active:opacity-60"
           >

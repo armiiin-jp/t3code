@@ -314,7 +314,6 @@ export function createDevRunnerEnv({
     const configuredBaseDir = t3Home?.trim() || undefined;
     const resolvedBaseDir = yield* resolveBaseDir(configuredBaseDir);
     const isDesktopMode = mode === "dev:desktop";
-
     const output: NodeJS.ProcessEnv = {
       ...baseEnv,
       PORT: String(webPort),
