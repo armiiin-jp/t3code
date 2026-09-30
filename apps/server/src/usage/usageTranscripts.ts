@@ -236,10 +236,14 @@ export function parseCodexLine(
   } catch {
     return null;
   }
-  return parseCodexRecord(parsed, state);
+  return parseCodexRecord(parsed, state, provider);
 }
 
-export function parseCodexRecord(parsed: unknown, state: CodexScanState): UsageRecord | null {
+export function parseCodexRecord(
+  parsed: unknown,
+  state: CodexScanState,
+  provider: "codex" | "gapcode" = "codex",
+): UsageRecord | null {
   if (typeof parsed !== "object" || parsed === null) return null;
 
   const record = parsed as Record<string, unknown>;

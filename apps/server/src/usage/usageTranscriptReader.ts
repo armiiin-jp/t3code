@@ -344,8 +344,8 @@ export async function readTranscriptRecords(
           out.push(...parseGrokRecord(projected));
         } else {
           const record =
-            provider === "codex"
-              ? parseCodexRecord(projected, state)
+            provider === "codex" || provider === "gapcode"
+              ? parseCodexRecord(projected, state, provider)
               : parseClaudeRecord(projected);
           if (record !== null) out.push(record);
         }
