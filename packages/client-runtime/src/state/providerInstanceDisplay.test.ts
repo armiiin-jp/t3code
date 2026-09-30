@@ -40,6 +40,16 @@ describe("resolveProviderInstanceDisplayName", () => {
       }),
     ).toBe("Codex");
   });
+
+  it("collapses a provider brand repeated in the instance display name", () => {
+    expect(
+      resolveProviderInstanceDisplayName({
+        instanceId: ProviderInstanceId.make("gapcode_ed"),
+        driver: ProviderDriverKind.make("gapcode"),
+        displayName: "Gapcode Gapcode",
+      }),
+    ).toBe("GapCode");
+  });
 });
 
 describe("providerInstanceInitials", () => {

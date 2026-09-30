@@ -25,6 +25,25 @@ function humanizeSlug(slug: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeLabel(label: string): string {
+  return label.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
+}
+
+function isRepeatedProviderBrandLabel(value: string, brand: string): boolean {
+  const normalizedBrand = normalizeLabel(brand);
+  const normalizedValue = normalizeLabel(value);
+  return normalizedValue === `${normalizedBrand} ${normalizedBrand}`;
+}
+
+function isProviderBrandLabel(value: string, brand: string): boolean {
+  const normalizedBrand = normalizeLabel(brand);
+  const normalizedValue = normalizeLabel(value);
+  return (
+    normalizedValue === normalizedBrand ||
+    normalizedValue === `${normalizedBrand} ${normalizedBrand}`
+  );
+}
+
 /**
  * Resolve an instance's label with a tiered priority:
  *
@@ -40,12 +59,17 @@ export function resolveProviderInstanceDisplayName(
 ): string {
   const trimmedSnapshotName = snapshot.displayName?.trim();
   const kindLabel = PROVIDER_DISPLAY_NAMES[snapshot.driver] ?? humanizeSlug(snapshot.driver);
-  if (trimmedSnapshotName && trimmedSnapshotName !== kindLabel) return trimmedSnapshotName;
+  if (trimmedSnapshotName && isRepeatedProviderBrandLabel(trimmedSnapshotName, kindLabel)) {
+    return kindLabel;
+  }
+  if (trimmedSnapshotName && !isProviderBrandLabel(trimmedSnapshotName, kindLabel)) {
+    return trimmedSnapshotName;
+  }
   if (snapshot.instanceId !== defaultInstanceIdForDriver(snapshot.driver)) {
     const humanized = humanizeSlug(snapshot.instanceId);
     if (humanized.length > 0) return humanized;
   }
-  return trimmedSnapshotName || kindLabel;
+  return kindLabel;
 }
 
 /**
