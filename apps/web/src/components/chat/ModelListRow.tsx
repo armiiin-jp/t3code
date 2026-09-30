@@ -42,9 +42,11 @@ export const ModelListRow = memo(function ModelListRow(props: {
   onToggleFavorite: () => void;
 }) {
   const ProviderIcon = PROVIDER_ICON_BY_PROVIDER[props.driverKind] ?? null;
-  const providerLabel = props.model.subProvider
-    ? `${props.providerDisplayName} · ${props.model.subProvider}`
-    : props.providerDisplayName;
+  const subProvider = props.model.subProvider?.trim();
+  const providerLabel =
+    subProvider && subProvider.toLowerCase() !== props.providerDisplayName.trim().toLowerCase()
+      ? `${props.providerDisplayName} · ${subProvider}`
+      : props.providerDisplayName;
   const modelLabel = props.useTriggerLabel
     ? getTriggerDisplayModelLabel(props.model)
     : getDisplayModelName(
