@@ -55,3 +55,78 @@ export class ProviderWorkspaceMissingError extends Schema.TaggedError<ProviderWo
     return `This thread's workspace folder no longer exists or is not a directory: ${this.cwd}. Restore the folder at this path before retrying.`;
   }
 }
+
+export class ProviderAdapterValidationError extends Schema.TaggedError<ProviderAdapterValidationError>()(
+  "ProviderAdapterValidationError",
+  {
+    provider: Schema.String,
+    operation: Schema.String,
+    issue: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `Provider adapter validation failed (${this.provider}) in ${this.operation}: ${this.issue}`;
+  }
+}
+
+export class ProviderAdapterSessionNotFoundError extends Schema.TaggedError<ProviderAdapterSessionNotFoundError>()(
+  "ProviderAdapterSessionNotFoundError",
+  {
+    provider: Schema.String,
+    threadId: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `Unknown ${this.provider} adapter thread: ${this.threadId}`;
+  }
+}
+
+export class ProviderAdapterSessionClosedError extends Schema.TaggedError<ProviderAdapterSessionClosedError>()(
+  "ProviderAdapterSessionClosedError",
+  {
+    provider: Schema.String,
+    threadId: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `${this.provider} adapter thread is closed: ${this.threadId}`;
+  }
+}
+
+export class ProviderAdapterRequestError extends Schema.TaggedError<ProviderAdapterRequestError>()(
+  "ProviderAdapterRequestError",
+  {
+    provider: Schema.String,
+    method: Schema.String,
+    detail: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `Provider adapter request failed (${this.provider}) for ${this.method}: ${this.detail}`;
+  }
+}
+
+export class ProviderAdapterProcessError extends Schema.TaggedError<ProviderAdapterProcessError>()(
+  "ProviderAdapterProcessError",
+  {
+    provider: Schema.String,
+    threadId: Schema.String,
+    detail: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `Provider adapter process error (${this.provider}) for thread ${this.threadId}: ${this.detail}`;
+  }
+}
+
+export type ProviderAdapterError =
+  | ProviderAdapterValidationError
+  | ProviderAdapterSessionNotFoundError
+  | ProviderAdapterSessionClosedError
+  | ProviderAdapterRequestError
+  | ProviderAdapterProcessError;
