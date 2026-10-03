@@ -6,13 +6,11 @@ import {
   COMPOSER_FOOTER_WIDE_ACTIONS_COMPACT_BREAKPOINT_PX,
   COMPOSER_RESTING_EXPANSION_MIN_PX,
   getRestingComposerImagePreviewCounts,
-  resolveComposerRestingControlsArrivalTiming,
-  resolveComposerRestingTransitionSettings,
+  overlayComposerIsResting,
   resolveComposerTimelineInset,
   resolveScrollToEndClearance,
   resolveRestingComposerControlsLayout,
   resolveRestingComposerControlsNaturalWidth,
-  shouldAnimateComposerContextStripArrival,
   shouldAnimateComposerRestingTransition,
   shouldUseCompactComposerPrimaryActions,
   shouldUseCompactComposerFooter,
@@ -80,6 +78,24 @@ describe("shouldUseCompactComposerPrimaryActions", () => {
   });
 });
 
+describe("overlayComposerIsResting", () => {
+  it("drops a resting reservation once a status bar replaces the composer", () => {
+    // The composer rested on a scroll, then the thread swapped it for the
+    // subagent bar. The bar's 56px overlay must not keep the resting estimate.
+    const isResting = overlayComposerIsResting({
+      composerMounted: false,
+      composerReportedResting: true,
+    });
+    expect(isResting).toBe(false);
+    expect(resolveComposerTimelineInset({ currentInset: 0, overlayHeight: 56, isResting })).toBe(
+      56,
+    );
+    expect(overlayComposerIsResting({ composerMounted: true, composerReportedResting: true })).toBe(
+      true,
+    );
+  });
+});
+
 describe("resolveComposerTimelineInset", () => {
   it("follows the expanded overlay height", () => {
     expect(
@@ -91,6 +107,34 @@ describe("resolveComposerTimelineInset", () => {
     expect(
       resolveComposerTimelineInset({ currentInset: 200, overlayHeight: 60, isResting: true }),
     ).toBe(200);
+  });
+
+  it("uses the measured expanded height while the resting strip host is mounting", () => {
+    expect(
+      resolveComposerTimelineInset({ currentInset: 172, overlayHeight: 110, isResting: true }),
+    ).toBe(172);
+  });
+
+  it("keeps timeline padding stable when the model-only strip appears on collapse", () => {
+    const expanded = resolveComposerTimelineInset({
+      currentInset: 0,
+      overlayHeight: 172,
+      isResting: false,
+    });
+    const collapsed = resolveComposerTimelineInset({
+      currentInset: expanded,
+      overlayHeight: 110,
+      isResting: true,
+      restingOnlyHeight: 32,
+    });
+    expect(collapsed).toBe(expanded);
+    expect(
+      resolveComposerTimelineInset({
+        currentInset: collapsed,
+        overlayHeight: 172,
+        isResting: false,
+      }),
+    ).toBe(expanded);
   });
 
   it("reserves the empty expansion when no larger height is known", () => {
@@ -174,92 +218,6 @@ describe("shouldAnimateComposerRestingTransition", () => {
         hasInterruptedAnimation: true,
       }),
     ).toBe(true);
-  });
-});
-
-describe("resolveComposerRestingTransitionSettings", () => {
-  it("uses a short default duration when panel animations are disabled", () => {
-    expect(
-      resolveComposerRestingTransitionSettings({ configuredDurationMs: 0, motionAllowed: true }),
-    ).toEqual({ active: true, durationMs: 180 });
-  });
-
-  it("keeps the configured duration and respects motion suppression", () => {
-    expect(
-      resolveComposerRestingTransitionSettings({
-        configuredDurationMs: 240,
-        motionAllowed: false,
-      }),
-    ).toEqual({ active: false, durationMs: 240 });
-  });
-});
-
-describe("resolveComposerRestingControlsArrivalTiming", () => {
-  it("reveals the context-strip controls as soon as the composer collapses", () => {
-    expect(
-      resolveComposerRestingControlsArrivalTiming({ durationMs: 180, isCollapsing: true }),
-    ).toEqual({
-      durationMs: 180,
-      delayMs: 0,
-    });
-  });
-
-  it("starts the returning footer controls early and lets them fade for most of the expansion", () => {
-    expect(
-      resolveComposerRestingControlsArrivalTiming({ durationMs: 180, isCollapsing: false }),
-    ).toEqual({
-      durationMs: 144,
-      delayMs: 36,
-    });
-  });
-});
-
-describe("shouldAnimateComposerContextStripArrival", () => {
-  it("animates a newly visible strip as the composer collapses", () => {
-    expect(
-      shouldAnimateComposerContextStripArrival({
-        isCollapsing: true,
-        contextStripIsVisible: true,
-        wasContextStripVisible: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("keeps an already visible strip in its existing layout", () => {
-    expect(
-      shouldAnimateComposerContextStripArrival({
-        isCollapsing: true,
-        contextStripIsVisible: true,
-        wasContextStripVisible: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("does not animate a hidden strip or a first observation", () => {
-    expect(
-      shouldAnimateComposerContextStripArrival({
-        isCollapsing: true,
-        contextStripIsVisible: false,
-        wasContextStripVisible: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldAnimateComposerContextStripArrival({
-        isCollapsing: true,
-        contextStripIsVisible: true,
-        wasContextStripVisible: null,
-      }),
-    ).toBe(false);
-  });
-
-  it("does not replay the entrance when the composer expands", () => {
-    expect(
-      shouldAnimateComposerContextStripArrival({
-        isCollapsing: false,
-        contextStripIsVisible: true,
-        wasContextStripVisible: false,
-      }),
-    ).toBe(false);
   });
 });
 

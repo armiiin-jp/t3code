@@ -5,7 +5,6 @@ import {
   getDisplayModelName,
   getTriggerDisplayModelLabel,
   type ModelEsque,
-  PROVIDER_ICON_BY_PROVIDER,
 } from "./providerIconUtils";
 import { ComboboxItem } from "../ui/combobox";
 import { Button } from "../ui/button";
@@ -14,6 +13,7 @@ import { Kbd } from "../ui/kbd";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "~/lib/utils";
 import { modelPickerModelKey } from "./modelPickerKeys";
+import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 
 export const ModelListRow = memo(function ModelListRow(props: {
   index: number;
@@ -29,6 +29,8 @@ export const ModelListRow = memo(function ModelListRow(props: {
    */
   providerDisplayName: string;
   providerAccentColor?: string | undefined;
+  acpRegistryAgentId?: string | undefined;
+  acpRegistryIconUrl?: string | undefined;
   isFavorite: boolean;
   isSelected: boolean;
   showSelection?: boolean;
@@ -41,20 +43,9 @@ export const ModelListRow = memo(function ModelListRow(props: {
   disabledReason?: string | null;
   onToggleFavorite: () => void;
 }) {
-  const ProviderIcon = PROVIDER_ICON_BY_PROVIDER[props.driverKind] ?? null;
-  const subProvider = props.model.subProvider?.trim();
-  const providerLabel =
-    subProvider && subProvider.toLowerCase() !== props.providerDisplayName.trim().toLowerCase()
-      ? `${props.providerDisplayName} · ${subProvider}`
-      : props.providerDisplayName;
-  const modelLabel = props.useTriggerLabel
-    ? getTriggerDisplayModelLabel(props.model)
-    : getDisplayModelName(
-        props.model,
-        props.preferShortName ? { preferShortName: true } : undefined,
-      );
-  const showProviderLabel =
-    props.showProvider && providerLabel.trim().toLowerCase() !== modelLabel.trim().toLowerCase();
+  const providerLabel = props.model.subProvider
+    ? `${props.providerDisplayName} · ${props.model.subProvider}`
+    : props.providerDisplayName;
 
   const row = (
     <ComboboxItem
@@ -70,7 +61,14 @@ export const ModelListRow = memo(function ModelListRow(props: {
     >
       <div className="min-w-0 flex-1 text-left">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 truncate text-xs font-medium leading-snug">{modelLabel}</div>
+          <div className="min-w-0 truncate text-xs font-medium leading-snug">
+            {props.useTriggerLabel
+              ? getTriggerDisplayModelLabel(props.model)
+              : getDisplayModelName(
+                  props.model,
+                  props.preferShortName ? { preferShortName: true } : undefined,
+                )}
+          </div>
           {props.showNewBadge ? (
             <span
               className="shrink-0 rounded border border-update/35 bg-update/15 px-0.5 py-px text-3xs font-bold uppercase leading-none tracking-wide text-update-foreground"
@@ -85,9 +83,16 @@ export const ModelListRow = memo(function ModelListRow(props: {
             </Badge>
           ) : null}
         </div>
-        {showProviderLabel && (
+        {props.showProvider && (
           <div className="mt-1 flex items-center gap-1.5">
-            {ProviderIcon ? <ProviderIcon className="size-3 shrink-0" /> : null}
+            <ProviderInstanceIcon
+              driverKind={props.driverKind}
+              displayName={props.providerDisplayName}
+              acpRegistryAgentId={props.acpRegistryAgentId}
+              acpRegistryIconUrl={props.acpRegistryIconUrl}
+              className="size-3"
+              iconClassName="size-3"
+            />
             <span className="truncate text-xs font-normal leading-snug text-muted-foreground/70">
               {providerLabel}
             </span>
