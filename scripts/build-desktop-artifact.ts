@@ -1006,6 +1006,7 @@ export const WINDOWS_SERVER_ASAR_RESOURCE = "server.asar";
 // asar redirect convention). Everything else stays packed.
 export const WINDOWS_NATIVE_ASAR_UNPACK_GLOB =
   "{**/*.node,**/*.dll,**/*.exe,**/*.so,**/*.so.*,**/*.dylib}";
+export const WINDOWS_SERVER_ASAR_UNPACK_GLOB = "{*.node,*.dll,*.exe,*.so,*.so.*,*.dylib}";
 // Mirrors DESKTOP_FILE_EXCLUSIONS for the hand-packed sidecar: the Claude SDK
 // platform packages are dead weight (see above), and node_modules/.bin shims
 // are never spawned at runtime (and are symlinks on POSIX build hosts, which
@@ -2909,7 +2910,7 @@ export const packWindowsServerAsar = Effect.fn("packWindowsServerAsar")(function
     try: () =>
       createPackageWithOptions(input.sourceDir, input.asarPath, {
         dot: true,
-        unpack: WINDOWS_NATIVE_ASAR_UNPACK_GLOB,
+        unpack: WINDOWS_SERVER_ASAR_UNPACK_GLOB,
         // glob 13 (via @electron/asar 4) matches `ignore` relative to `cwd`,
         // not against the absolute paths it crawls, so anchor it at the source.
         globOptions: {
