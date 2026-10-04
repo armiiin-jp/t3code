@@ -178,19 +178,28 @@ describe("shouldAnimateComposerRestingTransition", () => {
 });
 
 describe("resolveComposerRestingTransitionSettings", () => {
-  it("uses a short default duration when panel animations are disabled", () => {
+  it("preserves instant transitions when panel animations are disabled", () => {
     expect(
       resolveComposerRestingTransitionSettings({ configuredDurationMs: 0, motionAllowed: true }),
-    ).toEqual({ active: true, durationMs: 180 });
+    ).toEqual({ active: false, durationMs: 0 });
   });
 
-  it("keeps the configured duration and respects motion suppression", () => {
+  it("keeps the configured duration when motion is allowed", () => {
+    expect(
+      resolveComposerRestingTransitionSettings({
+        configuredDurationMs: 240,
+        motionAllowed: true,
+      }),
+    ).toEqual({ active: true, durationMs: 240 });
+  });
+
+  it("respects motion suppression even with a configured duration", () => {
     expect(
       resolveComposerRestingTransitionSettings({
         configuredDurationMs: 240,
         motionAllowed: false,
       }),
-    ).toEqual({ active: false, durationMs: 240 });
+    ).toEqual({ active: false, durationMs: 0 });
   });
 });
 

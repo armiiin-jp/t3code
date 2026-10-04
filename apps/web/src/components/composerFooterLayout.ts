@@ -97,12 +97,10 @@ export function resolveComposerRestingTransitionSettings(input: {
   configuredDurationMs: number;
   motionAllowed: boolean;
 }): { active: boolean; durationMs: number } {
+  const active = input.motionAllowed && input.configuredDurationMs > 0;
   return {
-    active: input.motionAllowed,
-    durationMs:
-      input.configuredDurationMs > 0
-        ? input.configuredDurationMs
-        : COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS,
+    active,
+    durationMs: active ? input.configuredDurationMs : 0,
   };
 }
 
