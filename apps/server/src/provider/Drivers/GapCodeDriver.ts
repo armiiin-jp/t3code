@@ -18,7 +18,10 @@ import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { ProviderDriverError } from "../Errors.ts";
-import { makeCodexAdapter } from "../Layers/CodexAdapter.ts";
+import {
+  createCodexAdapterV2,
+  type CodexAdapterV2DriverEnv,
+} from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as ResetCreditCoordinator from "../Layers/resetCreditCoordinator.ts";
 import {
   checkCodexProviderStatus,
@@ -108,6 +111,7 @@ function toCodexSettings(config: GapCodeSettings): CodexSettings {
 }
 
 export type GapCodeDriverEnv =
+  | CodexAdapterV2DriverEnv
   | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
@@ -208,14 +212,32 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
         ),
       );
       const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
-      const adapter = yield* makeCodexAdapter(effectiveConfig, {
-        instanceId,
-        provider: DRIVER_KIND,
-        supportsUsageLimits: true,
-        environment: providerEnv,
-        models,
-        ...(eventLoggers.native ? { nativeEventLogger: eventLoggers.native } : {}),
-      });
+      const orchestrationAdapter = yield* createCodexAdapterV2(
+        {
+          instanceId,
+          displayName,
+          accentColor,
+          environment: environment.filter(
+            (v) => v.name !== "CODEX_HOME" && v.name !== "T3CODE_CODEX_LAUNCH_ARGS",
+          ),
+          enabled,
+          config: effectiveConfig,
+        },
+        {
+          driver: DRIVER_KIND,
+          onUsageLimits: (update) => snapshot.applyUsageLimits(update),
+        },
+      ).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ProviderDriverError({
+              driver: DRIVER_KIND,
+              instanceId,
+              detail: "Failed to build GapCode orchestration adapter.",
+              cause,
+            }),
+        ),
+      );
       const textGeneration = yield* makeCodexTextGeneration(effectiveConfig, providerEnv, models);
       const accountKey = `gapcode:${normalizeCommandPath(effectiveConfig.binaryPath || "gapcode")}`;
       const consumeResetCredit: NonNullable<ProviderInstance["consumeResetCredit"]> = () =>
@@ -303,7 +325,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
                 ),
               ),
         consumeResetCredit,
-        adapter,
+        orchestrationAdapter,
         textGeneration,
       } satisfies ProviderInstance;
     }),
