@@ -5,10 +5,13 @@
  */
 import { CodexSettings, GapCodeSettings, ProviderDriverKind } from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 import { HttpClient } from "effect/unstable/http";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
@@ -212,6 +215,17 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
         ),
       );
       const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
+      // GapGPT proxies streaming turns through an upstream OpenAI pool whose
+      // in-flight `account/rateLimits/updated` notifications reflect the pool's
+      // shared allowance rather than the user's GapGPT plan quota. Instead of
+      // overwriting the true limits with proxy telemetry mid-turn, debounce a
+      // snapshot refresh that reads the user's authentic limits via `account/rateLimits/read`.
+      const refreshUsageLimitsQueue = yield* Queue.sliding<void>(1);
+      yield* Stream.fromQueue(refreshUsageLimitsQueue).pipe(
+        Stream.debounce(Duration.seconds(3)),
+        Stream.runForEach(() => snapshot.refresh.pipe(Effect.ignoreCause({ log: true }))),
+        Effect.forkScoped,
+      );
       const orchestrationAdapter = yield* createCodexAdapterV2(
         {
           instanceId,
@@ -225,7 +239,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
         },
         {
           driver: DRIVER_KIND,
-          onUsageLimits: (update) => snapshot.applyUsageLimits(update),
+          onUsageLimits: () => Queue.offer(refreshUsageLimitsQueue, undefined).pipe(Effect.asVoid),
         },
       ).pipe(
         Effect.mapError(
