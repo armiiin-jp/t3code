@@ -43,9 +43,13 @@ export const ModelListRow = memo(function ModelListRow(props: {
   disabledReason?: string | null;
   onToggleFavorite: () => void;
 }) {
-  const providerLabel = props.model.subProvider
-    ? `${props.providerDisplayName} · ${props.model.subProvider}`
-    : props.providerDisplayName;
+  const subProvider = props.model.subProvider?.trim();
+  const providerLabel =
+    subProvider &&
+    subProvider.replace(/\s+/gu, " ").toLowerCase() !==
+      props.providerDisplayName.trim().replace(/\s+/gu, " ").toLowerCase()
+      ? `${props.providerDisplayName} · ${subProvider}`
+      : props.providerDisplayName;
 
   const row = (
     <ComboboxItem
