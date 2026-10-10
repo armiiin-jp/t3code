@@ -4,7 +4,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { expect, it } from "@effect/vitest";
 import { ProviderInstanceId } from "@t3tools/contracts";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -14,30 +14,44 @@ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
-import { NoOpProviderEventLoggers, ProviderEventLoggers } from "../ProviderEventLoggers.ts";
+import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
+import * as ModelManifest from "../ModelManifest.ts";
+import * as ProviderHostLive from "../ProviderHostLive.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
 import * as CodexAdapterV2 from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
-import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
 import { GapCodeDriver } from "./GapCodeDriver.ts";
 
-const testLayer = ServerConfig.layerTest(process.cwd(), {
+const layerDeps = ServerConfig.layerTest(process.cwd(), {
   prefix: "t3-gapcode-driver-maintenance-",
 }).pipe(
   Layer.provideMerge(NodeServices.layer),
   Layer.provideMerge(IdAllocator.layer),
+  Layer.provideMerge(McpProviderSessions.layer),
   Layer.provideMerge(
     Layer.mock(CodexAdapterV2.CodexAppServerClientFactory)({
       open: () => Effect.die("Maintenance resolution must not open a GapCode session"),
     }),
   ),
   Layer.provideMerge(ServerSettingsService.layerTest()),
+  Layer.provideMerge(ModelManifest.layerTest),
   Layer.provideMerge(ResetCreditCoordinator.layerTest),
   Layer.provideMerge(
     Layer.mock(BackgroundPolicy.BackgroundPolicy)({
       shouldRunScopeWork: () => Effect.succeed(false),
     }),
   ),
-  Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
+  Layer.provideMerge(Layer.mock(ServerSecretStore.ServerSecretStore)({})),
+  Layer.provideMerge(
+    Layer.succeed(
+      ProviderEventLoggers.ProviderEventLoggers,
+      ProviderEventLoggers.NoOpProviderEventLoggers,
+    ),
+  ),
+  Layer.provideMerge(ProviderLatestVersions.layer),
   Layer.provideMerge(
     Layer.succeed(
       HttpClient.HttpClient,
@@ -45,6 +59,7 @@ const testLayer = ServerConfig.layerTest(process.cwd(), {
     ),
   ),
 );
+const testLayer = ProviderHostLive.layer.pipe(Layer.provideMerge(layerDeps));
 
 const noSpawn = ChildProcessSpawner.make(() =>
   Effect.die("Disabled GapCode must not spawn a process"),
@@ -59,7 +74,7 @@ it.layer(testLayer)("GapCodeDriver", (it) => {
         tempDir,
         ".gapcode",
         "bin",
-        HostProcessPlatform.defaultValue() === "win32" ? "gapcode.cmd" : "gapcode",
+        HostProcess.Platform.defaultValue() === "win32" ? "gapcode.cmd" : "gapcode",
       );
       yield* fs.makeDirectory(NodePath.dirname(binaryPath), { recursive: true });
       yield* fs.writeFileString(binaryPath, "stub");

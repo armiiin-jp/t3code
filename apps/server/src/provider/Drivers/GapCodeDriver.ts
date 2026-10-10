@@ -16,24 +16,25 @@ import { HttpClient } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 
 import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
-import { expandHomePath } from "../../pathExpansion.ts";
-import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
-import { ServerConfig } from "../../config.ts";
-import { ServerSettingsService } from "../../serverSettings.ts";
+import * as ServerConfig from "../../config.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import {
   createCodexAdapterV2,
   type CodexAdapterV2DriverEnv,
 } from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
+import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
+import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
 import {
   checkCodexProviderStatus,
   makePendingCodexProvider,
   probeCodexSkillsForCwd,
   withCodexAppServerClient,
 } from "../CodexProvider.ts";
-import { ProviderEventLoggers } from "../ProviderEventLoggers.ts";
-import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
   makeCachedProviderMaintenanceResolution,
@@ -42,19 +43,20 @@ import {
   normalizeCommandPath,
   resolveProviderMaintenanceCapabilitiesEffect,
   type ProviderMaintenanceResolutionContext,
-} from "../providerMaintenance.ts";
+} from "@t3tools/provider-core/server/maintenanceResolver";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "../providerUpdateSettings.ts";
+} from "@t3tools/provider-core/server/snapshotSettings";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "../ProviderDriver.ts";
-import { withInstanceIdentity } from "./instanceIdentity.ts";
-import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
+} from "@t3tools/provider-core/server/driver";
+import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
+import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import { gapCodeUsageReader } from "./codexUsage.ts";
 
 const decodeGapCodeSettings = Schema.decodeSync(GapCodeSettings);
 const DRIVER_KIND = ProviderDriverKind.make("gapcode");
@@ -115,18 +117,18 @@ function toCodexSettings(config: GapCodeSettings): CodexSettings {
 
 export type GapCodeDriverEnv =
   | CodexAdapterV2DriverEnv
-  | BackgroundPolicy.BackgroundPolicy
+  | ProviderHost.ProviderHost
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
   | FileSystem.FileSystem
   | HttpClient.HttpClient
+  | ProviderLatestVersions.ProviderLatestVersions
+  | ModelCatalog.ModelCatalog
   | Path.Path
-  | ProviderEventLoggers
   | ResetCreditCoordinator.ResetCreditCoordinator
-  | ServerConfig
-  | ServerSettingsService;
+  | ServerConfig.ServerConfig;
 
-export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = {
+export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Path.Path> = {
   driverKind: DRIVER_KIND,
   metadata: {
     displayName: "GapCode",
@@ -134,6 +136,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
   },
   configSchema: GapCodeSettings,
   defaultConfig: (): GapCodeSettings => decodeGapCodeSettings({}),
+  usage: gapCodeUsageReader,
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -141,9 +144,10 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
       const pathService = yield* Path.Path;
       const httpClient = yield* HttpClient.HttpClient;
       const resetCreditCoordinator = yield* ResetCreditCoordinator.ResetCreditCoordinator;
-      const serverSettings = yield* ServerSettingsService;
-      const eventLoggers = yield* ProviderEventLoggers;
-      const processEnv = mergeProviderInstanceEnvironment(environment);
+      const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
+      const modelCatalog = yield* ModelCatalog.ModelCatalog;
+      const currentCatalog = modelCatalog.current(DRIVER_KIND);
+      const processEnv = yield* mergeProviderInstanceEnvironment(environment);
       const providerEnv = { ...processEnv };
       delete providerEnv.CODEX_HOME;
       delete providerEnv.T3CODE_CODEX_LAUNCH_ARGS;
@@ -160,7 +164,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
       });
       const effectiveConfig = {
         ...toCodexSettings({ ...config, enabled }),
-        binaryPath: expandHomePath(config.binaryPath),
+        binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
       } satisfies CodexSettings;
       const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
         resolveProviderMaintenanceCapabilitiesEffect(gapCodeMaintenanceResolver, {
@@ -172,25 +176,34 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
           Effect.provideService(Path.Path, pathService),
         ),
       );
-      const checkProvider = checkCodexProviderStatus(
-        effectiveConfig,
-        undefined,
-        providerEnv,
-        undefined,
-        PROVIDER_OPTIONS,
-      ).pipe(
-        Effect.map(stampIdentity),
+      const checkProvider = modelCatalog.refreshInBackground.pipe(
+        Effect.andThen(
+          Effect.zipWith(
+            checkCodexProviderStatus(
+              effectiveConfig,
+              undefined,
+              providerEnv,
+              undefined,
+              PROVIDER_OPTIONS,
+            ),
+            currentCatalog,
+            (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
+            { concurrent: true },
+          ),
+        ),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
       );
-      const snapshotSettings = makeProviderSnapshotSettingsSource(effectiveConfig, serverSettings);
+      const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
       const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<CodexSettings>>({
         resolveMaintenance,
         getSettings: snapshotSettings.getSettings,
         streamSettings: snapshotSettings.streamSettings,
         haveSettingsChanged: haveProviderSnapshotSettingsChanged,
         initialSnapshot: (settings) =>
-          makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS).pipe(
-            Effect.map(stampIdentity),
+          Effect.zipWith(
+            makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS),
+            currentCatalog,
+            (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
           ),
         checkProvider,
         enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
@@ -201,6 +214,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv> = 
               }),
             ),
             Effect.provideService(HttpClient.HttpClient, httpClient),
+            Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
             Effect.flatMap((enrichedSnapshot) => publishSnapshot(enrichedSnapshot)),
           ),
       }).pipe(
