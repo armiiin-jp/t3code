@@ -23,7 +23,7 @@ export const providerClients = makeProviderClientRegistry([
   {
     driverKind: ProviderDriverKind.make("gapcode"),
     label: "GapCode",
-    badgeLabel: "Experimental",
+    badgeLabel: "self-added",
     settingsSchema: GapCodeSettings,
   },
   {
