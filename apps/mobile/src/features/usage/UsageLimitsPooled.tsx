@@ -31,6 +31,7 @@ const DRIVER_LABEL: Partial<Record<string, string>> = {
   codex: "Codex",
   gapcode: "GapCode",
   claudeAgent: "Claude",
+  antigravity: "Antigravity",
 };
 const PACE_LABEL = { ahead: "Ahead of pace", on: "On pace", under: "Under pace" } as const;
 
@@ -182,9 +183,16 @@ function PoolWindowCard({
               </Text>
               <View className="flex-row items-center gap-1">
                 {resetsIn ? (
-                  <Text className="text-xs tabular-nums text-foreground-muted">
-                    {resetsIn.replace("resets in ", "↻ ")}
-                  </Text>
+                  <>
+                    <SymbolView
+                      name="arrow.clockwise"
+                      size={12}
+                      tintColorClassName="accent-foreground-muted"
+                    />
+                    <Text className="text-xs tabular-nums text-foreground-muted">
+                      {resetsIn.replace("resets in ", "")}
+                    </Text>
+                  </>
                 ) : null}
                 {credits ? (
                   <>
@@ -266,7 +274,9 @@ export function UsageLimitsSection({
                         ? colors.claude
                         : pool.driver === "gapcode"
                           ? colors.gapcode
-                          : colors.codex
+                          : pool.driver === "antigravity"
+                            ? colors.antigravity
+                            : colors.codex
                     }
                     now={now}
                     environmentIds={

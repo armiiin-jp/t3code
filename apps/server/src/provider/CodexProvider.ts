@@ -60,6 +60,8 @@ type CodexRateLimitsProbe =
         | null
         | undefined;
       readonly resetCredits: CodexResetCreditsSummary | null | undefined;
+      /** The ChatGPT workspace the usage belongs to, when the backend names it. */
+      readonly accountId?: string | null | undefined;
     }
   | { readonly failure: string };
 
@@ -462,6 +464,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
             snapshot: response.rateLimits,
             rateLimitsByLimitId: response.rateLimitsByLimitId,
             resetCredits: response.rateLimitResetCredits,
+            accountId: response.accountId,
           })),
           Effect.timeoutOption(Duration.millis(RATE_LIMITS_PROBE_TIMEOUT_MS)),
           Effect.map(
@@ -560,20 +563,26 @@ const makePendingCodexProvider = (
   });
 
 function accountProbeStatus(
-  account: CodexAppServerProviderSnapshot["account"],
+  snapshot: CodexAppServerProviderSnapshot,
   options?: CodexCompatibleProviderOptions,
 ): {
   readonly status: Exclude<ServerProviderState, "disabled">;
   readonly auth: ServerProvider["auth"];
   readonly message?: string;
 } {
+  const { account, rateLimits } = snapshot;
   const authLabel = options?.authLabel ?? codexAccountAuthLabel(account.account);
   const authEmail = codexAccountEmail(account.account);
+  // One email can hold several workspaces, each with its own quota; the usage
+  // read names the one this login draws on.
+  const workspaceId =
+    rateLimits && "accountId" in rateLimits ? rateLimits.accountId?.trim() : undefined;
   const auth = {
     status: account.account ? ("authenticated" as const) : ("unknown" as const),
     ...(account.account?.type ? { type: account.account?.type } : {}),
     ...(authLabel ? { label: authLabel } : {}),
     ...(authEmail ? { email: authEmail } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
   } satisfies ServerProvider["auth"];
 
   if (account.account) {
@@ -703,7 +712,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const snapshot = probeResult.success.value;
   const accountStatus = managedAuth
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
-    : accountProbeStatus(snapshot.account, options);
+    : accountProbeStatus(snapshot, options);
   const usageLimits =
     options?.includeUsageLimits === false
       ? undefined
