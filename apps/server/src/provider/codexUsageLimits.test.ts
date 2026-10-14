@@ -6,6 +6,7 @@ import {
   codexRateLimitsToLimits,
   codexRateLimitsToUpdate,
   codexResetCreditsToContract,
+  codexUsageCredentialFingerprint,
   codexUsageLimitMessage,
   mergeCodexRateLimits,
 } from "./codexUsageLimits.ts";
@@ -61,6 +62,20 @@ describe("codexRateLimitsToLimits", () => {
         windowDurationMins: 43_200,
       },
     ]);
+  });
+
+  it("includes the provider's opaque account fingerprint when supplied", () => {
+    const credentialFingerprint = codexUsageCredentialFingerprint(" gapcode-account-123 ");
+    expect(credentialFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(credentialFingerprint).not.toContain("gapcode-account-123");
+    expect(codexUsageCredentialFingerprint("gapcode-account-123")).toBe(credentialFingerprint);
+    expect(
+      codexRateLimitsToLimits({
+        checkedAt,
+        snapshot: { primary: { usedPercent: 12, windowDurationMins: 300 } },
+        credentialFingerprint,
+      }).credentialFingerprint,
+    ).toBe(credentialFingerprint);
   });
 
   it("selects the main Codex allowance and leaves Spark out", () => {

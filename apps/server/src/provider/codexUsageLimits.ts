@@ -6,6 +6,9 @@
  *
  * @module provider/codexUsageLimits
  */
+import { sha256 } from "@noble/hashes/sha2";
+import { bytesToHex } from "@noble/hashes/utils";
+
 import type {
   ProviderUsageLimitsUpdate,
   ServerProviderResetCredits,
@@ -120,6 +123,7 @@ export function codexRateLimitsToLimits(input: {
     | null
     | undefined;
   readonly resetCredits?: CodexResetCreditsSummary | null | undefined;
+  readonly credentialFingerprint?: string | undefined;
   readonly checkedAt: string;
 }): ServerProviderUsageLimits {
   const resetCredits = codexResetCreditsToContract(input.resetCredits);
@@ -130,8 +134,14 @@ export function codexRateLimitsToLimits(input: {
       checkedAt: input.checkedAt,
       windows,
     }),
+    ...(input.credentialFingerprint ? { credentialFingerprint: input.credentialFingerprint } : {}),
     ...(resetCredits ? { resetCredits } : {}),
   };
+}
+
+/** Hashes a provider-reported account id so shared usage can be matched without exposing it. */
+export function codexUsageCredentialFingerprint(accountId: string): string {
+  return bytesToHex(sha256(new TextEncoder().encode(`codex-usage\0${accountId.trim()}`)));
 }
 
 export function codexRateLimitsToUpdate(

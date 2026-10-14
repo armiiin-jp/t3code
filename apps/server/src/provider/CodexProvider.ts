@@ -47,6 +47,7 @@ import { makeUnavailableUsageLimits } from "@t3tools/provider-core/server/usageL
 import {
   codexRateLimitsFailureMessage,
   codexRateLimitsToLimits,
+  codexUsageCredentialFingerprint,
   type CodexRateLimitSnapshot,
   type CodexResetCreditsSummary,
 } from "./codexUsageLimits.ts";
@@ -85,6 +86,7 @@ export interface CodexCompatibleProviderOptions {
   readonly authLabel?: string;
   readonly includeUsageLimits?: boolean;
   readonly includeApiKeyUsageLimits?: boolean;
+  readonly includeUsageAccountFingerprint?: boolean;
   readonly preferCodexDefaultModel?: boolean;
   readonly supportsFeedback?: boolean;
   readonly feedbackDescription?: string;
@@ -789,6 +791,14 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
               snapshot: snapshot.rateLimits.snapshot,
               rateLimitsByLimitId: snapshot.rateLimits.rateLimitsByLimitId,
               resetCredits: snapshot.rateLimits.resetCredits,
+              ...(options?.includeUsageAccountFingerprint === true &&
+              snapshot.rateLimits.accountId?.trim()
+                ? {
+                    credentialFingerprint: codexUsageCredentialFingerprint(
+                      snapshot.rateLimits.accountId,
+                    ),
+                  }
+                : {}),
               checkedAt,
             });
 

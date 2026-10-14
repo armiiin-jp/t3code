@@ -100,6 +100,7 @@ const PROVIDER_OPTIONS = {
   authLabel: "GapGPT",
   includeUsageLimits: true,
   includeApiKeyUsageLimits: true,
+  includeUsageAccountFingerprint: true,
   preferCodexDefaultModel: false,
   feedbackDescription: "Send this thread and GapCode logs to GapCode",
 } as const;
