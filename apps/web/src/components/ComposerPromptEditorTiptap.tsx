@@ -113,6 +113,7 @@ import {
   ComposerContextRecordsContext,
 } from "./composerContextPresentation";
 import type { AssistantCitationSourceAnchor } from "~/lib/assistantTextSelection";
+import { ComposerTextDirectionExtension } from "~/composer-text-direction";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { ComposerCodeBlockNodeView } from "./chat/ComposerCodeBlockNodeView";
 import { resolveAssistantCitationCommentDismissal } from "./chat/assistantCitationCommentDismissal";
@@ -1045,6 +1046,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
         "composer-tiptap -m-1 block max-h-52 min-h-19.5 overflow-y-auto p-1 whitespace-pre-wrap wrap-break-word bg-transparent leading-relaxed text-foreground focus:outline-none",
         className,
       ),
+      dir: "auto",
       "data-testid": "composer-editor",
       "data-composer-rich-text": richText ? "true" : "false",
       role: "textbox",
@@ -1097,6 +1099,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
         ComposerCitationExtension,
         ComposerContextReferenceExtension,
         ComposerMarkersExtension,
+        ComposerTextDirectionExtension,
         ...(richText
           ? [
               ComposerCodeExtension,
@@ -1887,8 +1890,9 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
             />
             {isEmpty && contextRecords.size === 0 && placeholder ? (
               <div
+                dir="auto"
                 className={cn(
-                  "pointer-events-none absolute inset-0 leading-relaxed text-placeholder/75",
+                  "pointer-events-none absolute inset-0 leading-relaxed text-placeholder/75 text-start",
                   placeholderClassName,
                 )}
               >

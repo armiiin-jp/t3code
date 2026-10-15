@@ -1,4 +1,5 @@
 import { MarkdownFindContext, useFindRevealRef } from "./chat/markdownFindContext";
+import { detectTextDirection } from "~/lib/bidi";
 import {
   buildFileLinkParentSuffixByPath,
   fileLinkLabel,
@@ -633,6 +634,7 @@ function MarkdownTable({ children, ...props }: React.ComponentProps<"table">) {
       ref={containerRef}
       className="chat-markdown-table-container"
       data-expanded={expanded ? "true" : "false"}
+      dir={props.dir}
     >
       <ScrollArea radius="none" chainVerticalScroll scrollFade className="w-full max-w-full">
         <table ref={tableRef} {...props}>
@@ -2823,14 +2825,19 @@ function markdownHeadingRenderer(level: 1 | 2 | 3 | 4 | 5 | 6) {
   const Tag = `h${level}` as const;
   return function MarkdownHeading({
     node: _node,
+    children,
     ...props
   }: ComponentProps<typeof Tag> & ReactMarkdownExtraProps) {
     const { headingLevelOffset } = use(ChatMarkdownRendererContext);
+    const dir = detectTextDirection(nodeToPlainText(children));
     return (
       <Tag
         {...props}
+        dir={dir === "rtl" ? "rtl" : undefined}
         aria-level={headingLevelOffset > 0 ? Math.min(level + headingLevelOffset, 6) : undefined}
-      />
+      >
+        {children}
+      </Tag>
     );
   };
 }
@@ -2855,18 +2862,32 @@ const CHAT_MARKDOWN_COMPONENTS = {
   },
   p: function MarkdownParagraph({ node: _node, children, ...props }) {
     const { skills } = use(ChatMarkdownRendererContext);
-    return <p {...props}>{renderSkillInlineMarkdownChildren(children, skills)}</p>;
+    const dir = detectTextDirection(nodeToPlainText(children));
+    return (
+      <p {...props} dir={dir === "rtl" ? "rtl" : undefined}>
+        {renderSkillInlineMarkdownChildren(children, skills)}
+      </p>
+    );
   },
   blockquote: function MarkdownBlockquote({ node: _node, children, ...props }) {
     const alert =
       GITHUB_ALERT_PRESENTATIONS[String((props as Record<string, unknown>)["data-alert"] ?? "")];
+    const dir = detectTextDirection(nodeToPlainText(children));
     if (!alert) {
-      return <blockquote {...props}>{children}</blockquote>;
+      return (
+        <blockquote {...props} dir={dir === "rtl" ? "rtl" : undefined}>
+          {children}
+        </blockquote>
+      );
     }
     // Not a <blockquote>: the stylesheet mutes those, and an alert's body is ordinary
     // text under a colored title — which is how the host renders it.
     return (
-      <div role="note" className={cn("my-1 border-l-2 pl-3", alert.borderClassName)}>
+      <div
+        role="note"
+        dir={dir === "rtl" ? "rtl" : undefined}
+        className={cn("my-1 border-s-2 ps-3", alert.borderClassName)}
+      >
         <p
           data-thread-find-ignore="true"
           className={cn("flex items-center gap-1.5 font-medium", alert.titleClassName)}
@@ -2892,8 +2913,13 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const listItemStart = node?.position?.start.offset;
     const markerOffset =
       typeof listItemStart === "number" ? findTaskListMarkerOffset(text, listItemStart) : null;
+    const dir = detectTextDirection(nodeToPlainText(children));
     return (
-      <li {...props} data-task-marker-offset={markerOffset ?? undefined}>
+      <li
+        {...props}
+        dir={dir === "rtl" ? "rtl" : undefined}
+        data-task-marker-offset={markerOffset ?? undefined}
+      >
         {renderSkillInlineMarkdownChildren(children, skills)}
       </li>
     );
@@ -3223,7 +3249,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       }
     }
     return (
-      <code {...props} className={className}>
+      <code {...props} dir="ltr" className={className}>
         {children}
       </code>
     );
@@ -3357,8 +3383,13 @@ const CHAT_MARKDOWN_COMPONENTS = {
     }
     return <ChatMarkdownImageFallback alt={altText} copyMarkdown={copyMarkdown} kind={kind} />;
   },
-  table: function MarkdownTableRenderer({ node: _node, ...props }) {
-    return <MarkdownTable {...props} />;
+  table: function MarkdownTableRenderer({ node: _node, children, ...props }) {
+    const dir = detectTextDirection(nodeToPlainText(children));
+    return (
+      <MarkdownTable {...props} dir={dir === "rtl" ? "rtl" : undefined}>
+        {children}
+      </MarkdownTable>
+    );
   },
   details: function MarkdownDetailsRenderer({ node: _node, children, open: detailsOpen }) {
     return <MarkdownDetails open={detailsOpen}>{children}</MarkdownDetails>;

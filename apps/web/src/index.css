@@ -1767,6 +1767,33 @@ code {
 
 /* Chat markdown rendering */
 
+/* chat-markdown-bidi-isolation: Ensure correct bidirectional alignment and isolation */
+.chat-markdown,
+.composer-tiptap {
+  text-align: start;
+}
+
+:is(.chat-markdown, .composer-tiptap) :is(p, h1, h2, h3, h4, h5, h6, li, blockquote) {
+  text-align: start;
+}
+
+:is(.chat-markdown, .composer-tiptap) pre {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+:is(.chat-markdown, .composer-tiptap) code:not(pre code) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:is(.chat-markdown, .composer-tiptap)
+  :is(.chat-markdown-file-link, [data-composer-token], .chat-markdown-context-chip, a.font-mono) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .chat-markdown > :first-child {
   margin-top: 0;
 }
@@ -1825,7 +1852,9 @@ code {
      custom property, so without this a task-list under a multi-digit ordered
      list would inherit the outer gutter instead of its own default. */
   --list-gutter: 1.25rem;
-  padding-left: 1.25rem;
+  padding-left: 0;
+  padding-inline-start: 1.25rem;
+  padding-inline-end: 0;
   list-style-type: disc;
 }
 
@@ -1836,7 +1865,9 @@ code {
    nested ol without its own widened marker doesn't inherit the outer one. */
 :is(.chat-markdown, .composer-tiptap) ol {
   --list-gutter: 1.25rem;
-  padding-left: var(--list-gutter, 1.25rem);
+  padding-left: 0;
+  padding-inline-start: var(--list-gutter, 1.25rem);
+  padding-inline-end: 0;
   list-style-type: decimal;
 }
 
@@ -1876,7 +1907,10 @@ code {
 }
 
 .chat-markdown li.task-list-item input[type="checkbox"] {
-  margin: 0 0.35em 0.15em calc(-1 * var(--list-gutter, 1.25rem));
+  margin-top: 0;
+  margin-bottom: 0.15em;
+  margin-inline-start: calc(-1 * var(--list-gutter, 1.25rem));
+  margin-inline-end: 0.35em;
   vertical-align: middle;
 }
 
@@ -1904,8 +1938,11 @@ code {
 }
 
 :is(.chat-markdown, .composer-tiptap) blockquote {
-  border-left: 2px solid var(--contrast-border);
-  padding-left: 0.8rem;
+  border-left: none;
+  border-inline-start: 2px solid var(--contrast-border);
+  padding-left: 0;
+  padding-inline-start: 0.8rem;
+  padding-inline-end: 0;
   color: var(--contrast-muted-foreground);
 }
 
