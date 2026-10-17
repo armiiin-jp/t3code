@@ -637,6 +637,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   managedAuth?: ServerProvider["auth"],
   options?: {
     readonly includeUsageLimits?: boolean;
+    readonly includeApiKeyUsageLimits?: boolean;
     readonly includeUsageAccountFingerprint?: boolean;
   },
 ): Effect.fn.Return<
@@ -731,30 +732,32 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
     : accountProbeStatus(snapshot);
   const usageLimits =
-    snapshot.account.account?.type === "apiKey"
-      ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
-      : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
-        ? makeUnavailableUsageLimits({
-            checkedAt,
-            reason: "probeFailed",
-            ...(snapshot.rateLimits ? { message: snapshot.rateLimits.failure } : {}),
-          })
-        : codexRateLimitsToLimits({
-            snapshot: snapshot.rateLimits.snapshot,
-            rateLimitsByLimitId: snapshot.rateLimits.rateLimitsByLimitId,
-            resetCredits: snapshot.rateLimits.resetCredits,
-            checkedAt,
-            ...(options?.includeUsageAccountFingerprint &&
-            snapshot.rateLimits &&
-            "accountId" in snapshot.rateLimits &&
-            snapshot.rateLimits.accountId
-              ? {
-                  credentialFingerprint: codexUsageCredentialFingerprint(
-                    snapshot.rateLimits.accountId,
-                  ),
-                }
-              : {}),
-          });
+    options?.includeUsageLimits === false
+      ? undefined
+      : snapshot.account.account?.type === "apiKey" && options?.includeApiKeyUsageLimits !== true
+        ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
+        : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
+          ? makeUnavailableUsageLimits({
+              checkedAt,
+              reason: "probeFailed",
+              ...(snapshot.rateLimits ? { message: snapshot.rateLimits.failure } : {}),
+            })
+          : codexRateLimitsToLimits({
+              snapshot: snapshot.rateLimits.snapshot,
+              rateLimitsByLimitId: snapshot.rateLimits.rateLimitsByLimitId,
+              resetCredits: snapshot.rateLimits.resetCredits,
+              checkedAt,
+              ...(options?.includeUsageAccountFingerprint &&
+              snapshot.rateLimits &&
+              "accountId" in snapshot.rateLimits &&
+              snapshot.rateLimits.accountId
+                ? {
+                    credentialFingerprint: codexUsageCredentialFingerprint(
+                      snapshot.rateLimits.accountId,
+                    ),
+                  }
+                : {}),
+            });
 
   return buildServerProvider({
     presentation: CODEX_PRESENTATION,
