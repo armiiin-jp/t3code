@@ -10,7 +10,9 @@ function renderModelRow(subProvider: string) {
     <Combobox value="" onValueChange={() => {}}>
       <ModelListRow
         index={0}
-        model={{ slug: "gpt-6-luna", name: "GPT-6 Luna", subProvider }}
+        slug="gpt-6-luna"
+        name="GPT-6 Luna"
+        subProvider={subProvider}
         instanceId={ProviderInstanceId.make("gapcode")}
         driverKind={ProviderDriverKind.make("gapcode")}
         providerDisplayName="Gapcode"

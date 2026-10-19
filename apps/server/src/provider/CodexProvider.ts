@@ -784,7 +784,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
       status: accountStatus.status,
       auth: accountStatus.auth,
       ...(accountStatus.message ? { message: accountStatus.message } : {}),
-      ...(managedAuth ? {} : { usageLimits }),
+      ...(!managedAuth && usageLimits !== undefined ? { usageLimits } : {}),
     },
   });
 });
