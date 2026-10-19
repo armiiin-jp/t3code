@@ -7195,7 +7195,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 >
                   {composerControlsCollapsed ? null : composerControls}
                 </div>
-
+                {/* Right side: send / stop button */}
                 <div
                   ref={setRestingActionsElement}
                   data-chat-composer-actions="right"
