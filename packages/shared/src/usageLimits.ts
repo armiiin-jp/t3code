@@ -410,7 +410,7 @@ function accountSortName(account: LimitAccount): string {
  * other drivers' ids name distinct allowances.
  */
 function poolKey(driver: ServerProvider["driver"], window: ServerProviderUsageWindow): string {
-  return driver === "codex" ? window.kind : `${window.kind}:${window.id}`;
+  return driver === "codex" || driver === "gapcode" ? window.kind : `${window.kind}:${window.id}`;
 }
 
 function poolMember(account: LimitAccount, reported: ServerProviderUsageWindow, now: number) {
@@ -421,7 +421,8 @@ function poolMember(account: LimitAccount, reported: ServerProviderUsageWindow, 
             window.usedPercent >= 100 &&
             (account.driver === "claudeAgent"
               ? window.id === "seven_day"
-              : account.driver === "codex" && window.kind === "weekly"),
+              : (account.driver === "codex" || account.driver === "gapcode") &&
+                window.kind === "weekly"),
         )
       : undefined;
   if (!spentWeekly) return { account, window: reported, refillPercent: reported.usedPercent };
@@ -475,7 +476,9 @@ function poolWindows(accounts: readonly LimitAccount[], now: number): readonly L
   const pools = [...byKey].map(([key, members]): LimitPoolWindow => {
     const memberByAccount = new Map(members.map((member) => [member.account.key, member]));
     const first = members[0]!.window;
-    const id = members[0]!.account.driver === "codex" ? key : first.id;
+    const isCodexLike =
+      members[0]!.account.driver === "codex" || members[0]!.account.driver === "gapcode";
+    const id = isCodexLike ? key : first.id;
     const usedPercent = members.reduce((sum, m) => sum + m.window.usedPercent, 0) / members.length;
     // Pace compares spend against the clock, so it is judged only over the
     // members that have a clock; a window with no reset would otherwise

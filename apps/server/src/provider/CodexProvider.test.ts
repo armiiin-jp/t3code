@@ -1,6 +1,11 @@
 import { assert, it } from "@effect/vitest";
 
-import { applyPreferredCodexDefaultModel, mapCodexModelCapabilities } from "./CodexProvider.ts";
+import {
+  applyPreferredCodexDefaultModel,
+  gapCodePlanLabel,
+  gapCodePlanTier,
+  mapCodexModelCapabilities,
+} from "./CodexProvider.ts";
 
 it("maps current Codex model capability fields", () => {
   const capabilities = mapCodexModelCapabilities({
@@ -170,4 +175,20 @@ it("ignores custom models that shadow a preferred slug", () => {
   ]);
 
   assert.deepStrictEqual(models.find((model) => model.isDefault)?.slug, "gpt-5.4");
+});
+
+it("formats GapCode plan tiers and labels to match GapCode /status", () => {
+  assert.strictEqual(gapCodePlanTier("pro"), "Pro (More)");
+  assert.strictEqual(gapCodePlanTier("promax"), "Pro (Max)");
+  assert.strictEqual(gapCodePlanTier("plus"), "Plus");
+  assert.strictEqual(gapCodePlanTier("free"), "Free");
+  assert.strictEqual(gapCodePlanTier("business"), "Business Premium");
+  assert.strictEqual(gapCodePlanTier("enterprise"), "Enterprise (Automation)");
+  assert.strictEqual(gapCodePlanTier("ent26"), "Enterprise (Automation)");
+  assert.strictEqual(gapCodePlanTier("edu_plus"), "Edu Plus");
+  assert.strictEqual(gapCodePlanTier(undefined), undefined);
+
+  assert.strictEqual(gapCodePlanLabel("pro"), "GapGPT subscription (Pro (More))");
+  assert.strictEqual(gapCodePlanLabel("promax"), "GapGPT subscription (Pro (Max))");
+  assert.strictEqual(gapCodePlanLabel(undefined), "GapGPT subscription");
 });

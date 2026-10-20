@@ -70,6 +70,8 @@ function AccountAvatar({
   readonly className?: string;
 }) {
   if (account.redeem) {
+    const isDefaultLabel =
+      account.displayName === (providerClients.get(account.driver)?.label ?? account.driver);
     return (
       <ProviderInstanceIcon
         driverKind={account.driver}
@@ -79,7 +81,7 @@ function AccountAvatar({
           String(account.driver)
         }
         accentColor={account.accentColor}
-        showBadge={Boolean(account.displayName)}
+        showBadge={Boolean(account.accentColor || (account.displayName && !isDefaultLabel))}
         indicatorBackground="var(--popover)"
         className={cn("size-5", className)}
         iconClassName="size-4 text-foreground/80"
@@ -272,7 +274,7 @@ function PoolSegment({
           <span className="shrink-0 font-semibold text-foreground tabular-nums">{remaining}%</span>
           {resetsIn || credits ? (
             <span className="ms-auto flex shrink-0 items-center gap-1.5 rounded-sm bg-background/85 px-1.5 py-0.5 text-2xs text-foreground tabular-nums">
-              {resetsIn?.replace("resets in ", "↻ ") ?? ""}
+              {resetsIn?.replace("resets in ", "↺ ") ?? ""}
               {credits ? (
                 <>
                   {resetsIn ? (
@@ -350,7 +352,7 @@ function LegendRow({
       <AccountName account={account} className="min-w-0 truncate font-medium text-foreground" />
       <span className="shrink-0 font-semibold text-foreground tabular-nums">{remaining}%</span>
       <span className="ms-auto flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground tabular-nums">
-        {resetsIn?.replace("resets in ", "↻ ") ?? ""}
+        {resetsIn?.replace("resets in ", "↺ ") ?? ""}
         {credits ? (
           <>
             {resetsIn ? <span aria-hidden>·</span> : null}
@@ -484,7 +486,7 @@ function PoolWindowCard({
         </span>
         {nextRefill && pool.columns.length > 1 ? (
           <span className="text-xs font-medium text-foreground tabular-nums">
-            ↻ +{nextRefill.restoresPercent}%
+            ↺ +{nextRefill.restoresPercent}%
           </span>
         ) : null}
       </div>

@@ -55,7 +55,7 @@ import packageJson from "../../package.json" with { type: "json" };
 const isCodexAppServerSpawnError = Schema.is(CodexErrors.CodexAppServerSpawnError);
 const RATE_LIMITS_PROBE_TIMEOUT_MS = 3_000;
 
-type CodexRateLimitsProbe =
+export type CodexRateLimitsProbe =
   | {
       readonly snapshot: CodexRateLimitSnapshot;
       readonly rateLimitsByLimitId?:
@@ -66,6 +66,22 @@ type CodexRateLimitsProbe =
       readonly accountId?: string | null | undefined;
     }
   | { readonly failure: string };
+
+export interface CodexProviderOptions {
+  readonly displayName?: string;
+  readonly loginCommand?: string;
+  readonly authLabel?: string;
+  readonly includeUsageLimits?: boolean;
+  readonly includeApiKeyUsageLimits?: boolean;
+  readonly includeUsageAccountFingerprint?: boolean;
+  readonly preferCodexDefaultModel?: boolean;
+  readonly feedbackDescription?: string;
+  readonly resolvePlanLabel?: (input: {
+    readonly planType: string | null | undefined;
+    readonly account: CodexSchema.V2GetAccountResponse["account"];
+    readonly rateLimits?: CodexRateLimitsProbe;
+  }) => string | undefined;
+}
 
 const CODEX_APP_SERVER_PROBE_FORCE_KILL_AFTER = "2 seconds" as const;
 const CODEX_CATALOG_REFRESH_TIMEOUT = "3 seconds" as const;
@@ -112,12 +128,70 @@ function reasoningEffortLabel(reasoningEffort: string): string {
   return REASONING_EFFORT_LABELS[reasoningEffort] ?? reasoningEffort;
 }
 
-function codexAccountAuthLabel(account: CodexSchema.V2GetAccountResponse["account"]) {
+export function gapCodePlanTier(planType: string | null | undefined): string | undefined {
+  if (!planType) return undefined;
+  switch (planType.toLowerCase().trim()) {
+    case "pro":
+      return "Pro (More)";
+    case "promax":
+      return "Pro (Max)";
+    case "business":
+    case "self_serve_business_prolite":
+    case "self_serve_business_usage_based":
+      return "Business Premium";
+    case "enterprise":
+    case "ent26":
+    case "enterprise_cbp_automation":
+    case "enterprise_cbp_usage_based":
+      return "Enterprise (Automation)";
+    case "edu_plus":
+      return "Edu Plus";
+    case "edu_pro":
+      return "Edu Pro";
+    case "edu":
+      return "Education";
+    case "plus":
+      return "Plus";
+    case "free":
+      return "Free";
+    case "team":
+      return "Team";
+    default:
+      return planType.trim();
+  }
+}
+
+export function gapCodePlanLabel(planType: string | null | undefined): string {
+  const tier = gapCodePlanTier(planType);
+  return tier ? `GapGPT subscription (${tier})` : "GapGPT subscription";
+}
+
+function codexAccountAuthLabel(
+  account: CodexSchema.V2GetAccountResponse["account"],
+  rawPlanType?: string | null,
+  options?: CodexProviderOptions,
+) {
   if (!account) return undefined;
+  if (options?.resolvePlanLabel) {
+    return options.resolvePlanLabel({ planType: rawPlanType, account });
+  }
+  if (options?.authLabel === "GapGPT") {
+    const isSubscription =
+      account.type === "chatgpt" ||
+      (account.type === "apiKey" &&
+        ("oauthOrigin" in account
+          ? Boolean((account as { oauthOrigin?: boolean }).oauthOrigin)
+          : true)) ||
+      Boolean(rawPlanType);
+    if (isSubscription) {
+      return gapCodePlanLabel(rawPlanType);
+    }
+    return "GapCode API Key";
+  }
   if (account.type === "apiKey") return "OpenAI API Key";
   if (account.type === "amazonBedrock") return "Amazon Bedrock";
   if (account.type !== "chatgpt") return undefined;
-  return codexPlanLabel(account.planType);
+  return codexPlanLabel(rawPlanType ?? account.planType);
 }
 
 export function codexPlanLabel(planType: string | null | undefined): string | undefined {
@@ -542,18 +616,16 @@ const emptyCodexModelsFromSettings = (codexSettings: CodexSettings): ServerProvi
 
 const makePendingCodexProvider = (
   codexSettings: CodexSettings,
-  _options?: {
-    readonly includeUsageLimits?: boolean;
-    readonly includeUsageAccountFingerprint?: boolean;
-  },
+  options?: CodexProviderOptions,
 ): Effect.Effect<ServerProviderDraft> =>
   Effect.gen(function* () {
     const checkedAt = yield* Effect.map(DateTime.now, DateTime.formatIso);
     const models = emptyCodexModelsFromSettings(codexSettings);
+    const displayName = options?.displayName ?? CODEX_PRESENTATION.displayName;
 
     if (!codexSettings.enabled) {
       return buildServerProvider({
-        presentation: CODEX_PRESENTATION,
+        presentation: { ...CODEX_PRESENTATION, displayName },
         enabled: false,
         checkedAt,
         models,
@@ -563,13 +635,13 @@ const makePendingCodexProvider = (
           version: null,
           status: "warning",
           auth: { status: "unknown" },
-          message: "Codex is disabled in T3 Code settings.",
+          message: `${displayName} is disabled in T3 Code settings.`,
         },
       });
     }
 
     return buildServerProvider({
-      presentation: CODEX_PRESENTATION,
+      presentation: { ...CODEX_PRESENTATION, displayName },
       enabled: true,
       checkedAt,
       models,
@@ -579,17 +651,30 @@ const makePendingCodexProvider = (
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Codex provider status has not been checked in this session yet.",
+        message: `${displayName} provider status has not been checked in this session yet.`,
       },
     });
   });
 
-function accountProbeStatus({ account, rateLimits }: CodexAppServerProviderSnapshot): {
+function accountProbeStatus(
+  { account, rateLimits }: CodexAppServerProviderSnapshot,
+  options?: CodexProviderOptions,
+): {
   readonly status: Exclude<ServerProviderState, "disabled">;
   readonly auth: ServerProvider["auth"];
   readonly message?: string;
 } {
-  const authLabel = codexAccountAuthLabel(account.account);
+  const displayName = options?.displayName ?? CODEX_PRESENTATION.displayName;
+  const loginCommand = options?.loginCommand ?? "codex login";
+  const rawPlanType =
+    (account.account && "planType" in account.account ? account.account.planType : undefined) ??
+    (rateLimits && "snapshot" in rateLimits && rateLimits.snapshot?.planType
+      ? rateLimits.snapshot.planType
+      : undefined) ??
+    (rateLimits && "rateLimitsByLimitId" in rateLimits && rateLimits.rateLimitsByLimitId
+      ? Object.values(rateLimits.rateLimitsByLimitId)[0]?.planType
+      : undefined);
+  const authLabel = codexAccountAuthLabel(account.account, rawPlanType, options);
   const authEmail = codexAccountEmail(account.account);
   const workspaceId =
     rateLimits && "accountId" in rateLimits ? rateLimits.accountId?.trim() : undefined;
@@ -609,7 +694,7 @@ function accountProbeStatus({ account, rateLimits }: CodexAppServerProviderSnaps
     return {
       status: "error",
       auth: { status: "unauthenticated" },
-      message: "Codex CLI is not authenticated. Run `codex login` and try again.",
+      message: `${displayName} CLI is not authenticated. Run \`${loginCommand}\` and try again.`,
     };
   }
 
@@ -635,11 +720,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   > = probeCodexAppServerProvider,
   environment?: NodeJS.ProcessEnv,
   managedAuth?: ServerProvider["auth"],
-  options?: {
-    readonly includeUsageLimits?: boolean;
-    readonly includeApiKeyUsageLimits?: boolean;
-    readonly includeUsageAccountFingerprint?: boolean;
-  },
+  options?: CodexProviderOptions,
 ): Effect.fn.Return<
   ServerProviderDraft,
   ServerSettingsError,
@@ -648,10 +729,14 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const resolvedEnvironment = environment ?? process.env;
   const checkedAt = DateTime.formatIso(yield* DateTime.now);
   const emptyModels = emptyCodexModelsFromSettings(codexSettings);
+  const displayName = options?.displayName ?? CODEX_PRESENTATION.displayName;
+  const loginCommand = options?.loginCommand ?? "codex login";
+  const feedbackDescription =
+    options?.feedbackDescription ?? "Send this thread and Codex logs to OpenAI";
 
   if (!codexSettings.enabled) {
     return buildServerProvider({
-      presentation: CODEX_PRESENTATION,
+      presentation: { ...CODEX_PRESENTATION, displayName },
       enabled: false,
       checkedAt,
       models: emptyModels,
@@ -661,7 +746,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Codex is disabled in T3 Code settings.",
+        message: `${displayName} is disabled in T3 Code settings.`,
       },
     });
   }
@@ -690,7 +775,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     const error = probeResult.failure;
     const installed = !isCodexAppServerSpawnError(error);
     return buildServerProvider({
-      presentation: CODEX_PRESENTATION,
+      presentation: { ...CODEX_PRESENTATION, displayName },
       enabled: codexSettings.enabled,
       checkedAt,
       models: emptyModels,
@@ -701,10 +786,10 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
         status: "error",
         auth: { status: "unknown" },
         message: installed
-          ? `Codex app-server provider probe failed: ${error.message}.`
-          : `Could not start Codex CLI (\`${codexSettings.binaryPath}\`). Check Settings → Providers → Codex → Binary path on the server.` +
-            (codexSettings.binaryPath === "codex"
-              ? " Installing ChatGPT or Codex desktop may not add codex to PATH."
+          ? `${displayName} app-server provider probe failed: ${error.message}.`
+          : `Could not start ${displayName} CLI (\`${codexSettings.binaryPath}\`). Check Settings → Providers → ${displayName} → Binary path on the server.` +
+            (codexSettings.binaryPath === "codex" || codexSettings.binaryPath === "gapcode"
+              ? ` Installing ${displayName} may not add ${codexSettings.binaryPath} to PATH.`
               : " Make sure the configured executable exists and can be run."),
       },
     });
@@ -712,7 +797,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
 
   if (Option.isNone(probeResult.success)) {
     return buildServerProvider({
-      presentation: CODEX_PRESENTATION,
+      presentation: { ...CODEX_PRESENTATION, displayName },
       enabled: codexSettings.enabled,
       checkedAt,
       models: emptyModels,
@@ -722,7 +807,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
         version: null,
         status: "error",
         auth: { status: "unknown" },
-        message: "Timed out while checking Codex app-server provider status.",
+        message: `Timed out while checking ${displayName} app-server provider status.`,
       },
     });
   }
@@ -730,7 +815,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const snapshot = probeResult.success.value;
   const accountStatus = managedAuth
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
-    : accountProbeStatus(snapshot);
+    : accountProbeStatus(snapshot, options);
   const usageLimits =
     options?.includeUsageLimits === false
       ? undefined
@@ -760,7 +845,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
             });
 
   return buildServerProvider({
-    presentation: CODEX_PRESENTATION,
+    presentation: { ...CODEX_PRESENTATION, displayName },
     enabled: codexSettings.enabled,
     checkedAt,
     models: snapshot.models,
@@ -769,12 +854,12 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
       COMPACT_SLASH_COMMAND,
       {
         name: "goal",
-        description: "Set a goal Codex keeps working toward until it is done",
+        description: `Set a goal ${displayName} keeps working toward until it is done`,
         input: { hint: "Objective, or pause, resume, clear" },
       },
       {
         name: "feedback",
-        description: "Send this thread and Codex logs to OpenAI",
+        description: feedbackDescription,
         input: { hint: "Describe the issue (optional)" },
       },
     ],
