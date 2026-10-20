@@ -24,6 +24,10 @@ export interface CodexRateLimitSnapshot {
   readonly rateLimitReachedType?: string | null;
   readonly primary?: CodexRateLimitWindow | null;
   readonly secondary?: CodexRateLimitWindow | null;
+  readonly individualLimit?: {
+    readonly remainingPercent: number;
+    readonly resetsAt: number;
+  } | null;
 }
 
 export interface CodexResetCreditsSummary {
@@ -83,6 +87,17 @@ function codexRateLimitsToWindows(
       label: labelForKind(kind),
       usedPercent: clampPercent(window.usedPercent),
       windowDurationMins,
+      ...(resetsAt ? { resetsAt } : {}),
+    });
+  }
+  const individualLimit = snapshot.individualLimit;
+  if (individualLimit && Number.isFinite(individualLimit.remainingPercent)) {
+    const resetsAt = isoFromEpochSeconds(individualLimit.resetsAt);
+    windows.push({
+      id: "individual",
+      kind: "monthly",
+      label: "Monthly credit limit",
+      usedPercent: clampPercent(100 - individualLimit.remainingPercent),
       ...(resetsAt ? { resetsAt } : {}),
     });
   }
@@ -174,6 +189,7 @@ export function mergeCodexRateLimits(
       : {}),
     ...(update.primary !== undefined ? { primary: update.primary } : {}),
     ...(update.secondary !== undefined ? { secondary: update.secondary } : {}),
+    ...(update.individualLimit !== undefined ? { individualLimit: update.individualLimit } : {}),
   };
 }
 

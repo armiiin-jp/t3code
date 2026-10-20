@@ -85,6 +85,7 @@ export interface CodexProviderOptions {
 
 const CODEX_APP_SERVER_PROBE_FORCE_KILL_AFTER = "2 seconds" as const;
 const CODEX_CATALOG_REFRESH_TIMEOUT = "3 seconds" as const;
+const CODEX_CONFIG_PROBE_TIMEOUT = "3 seconds" as const;
 const CODEX_CATALOG_REFRESH_POLL = "100 millis" as const;
 const CODEX_CLIENT_NAME = "T3 Code";
 // Codex's probe does a full handshake plus account, models, and skills requests, which can
@@ -235,12 +236,16 @@ function codexAccountEmail(account: CodexSchema.V2GetAccountResponse["account"])
   return account.email;
 }
 
+export function codexDefaultReasoningEffortOverride(model: string): "medium" | undefined {
+  return codexModelFamily(model) === "gpt-6-astra" ? "medium" : undefined;
+}
+
 export function mapCodexModelCapabilities(
   model: CodexSchema.V2ModelListResponse__Model,
 ): ModelCapabilities {
   const reasoningOptions = model.supportedReasoningEfforts.map(({ reasoningEffort }) =>
     reasoningEffort ===
-    (codexModelFamily(model.model) === "gpt-6-astra" ? "medium" : model.defaultReasoningEffort)
+    (codexDefaultReasoningEffortOverride(model.model) ?? model.defaultReasoningEffort)
       ? {
           id: reasoningEffort,
           label: reasoningEffortLabel(reasoningEffort),
@@ -337,6 +342,37 @@ export function applyPreferredCodexDefaultModel(
     }
     const { isDefault: _isDefault, ...rest } = model;
     return rest;
+  });
+}
+
+function applyConfiguredCodexServiceTier(
+  models: ReadonlyArray<ServerProviderModel>,
+  serviceTier: string | undefined,
+): ReadonlyArray<ServerProviderModel> {
+  if (!serviceTier) return models;
+  return models.map((model) => {
+    if (!model.capabilities?.optionDescriptors) return model;
+    return {
+      ...model,
+      capabilities: {
+        ...model.capabilities,
+        optionDescriptors: model.capabilities.optionDescriptors.map((descriptor) => {
+          if (descriptor.id !== "serviceTier" || descriptor.type !== "select") return descriptor;
+          const value = descriptor.options.find(
+            (option) =>
+              option.id === serviceTier || (serviceTier === "fast" && option.id === "priority"),
+          )?.id;
+          if (!value) return descriptor;
+          return {
+            ...descriptor,
+            currentValue: value,
+            options: descriptor.options.map(({ isDefault: _isDefault, ...option }) =>
+              option.id === value ? { ...option, isDefault: true } : option,
+            ),
+          };
+        }),
+      },
+    };
   });
 }
 
@@ -555,7 +591,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
     } satisfies CodexAppServerProviderSnapshot;
   }
 
-  const [skillsResponse, models, rateLimits] = yield* Effect.all(
+  const [skillsResponse, models, serviceTier, rateLimits] = yield* Effect.all(
     [
       client.request("skills/list", {
         cwds: [input.cwd],
@@ -563,6 +599,15 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
       accountResponse.account?.type === "chatgpt"
         ? requestCodexChatGptModels({ client, codexHome: initialize.codexHome, spawnedAtMs })
         : requestAllCodexModels(client),
+      // The shared catalog must exclude config from the server's launch project.
+      client.request("config/read", { includeLayers: false }).pipe(
+        Effect.map((response) => response.config.service_tier ?? undefined),
+        Effect.timeoutOption(CODEX_CONFIG_PROBE_TIMEOUT),
+        Effect.map(Option.getOrUndefined),
+        Effect.catch(() => Effect.logDebug("Codex config read failed.").pipe(Effect.as(undefined))),
+      ),
+      // Usage is an enrichment: a failure or a slow answer degrades to "no
+      // usage this probe" rather than costing the account and models.
       input.skipNativeUsage
         ? Effect.succeed(undefined)
         : client.request("account/rateLimits/read", null).pipe(
@@ -592,8 +637,9 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
     account: accountResponse,
     ...(rateLimits ? { rateLimits } : {}),
     version,
-    models: applyPreferredCodexDefaultModel(
-      appendCustomCodexModels(models, input.customModels ?? []),
+    models: applyConfiguredCodexServiceTier(
+      applyPreferredCodexDefaultModel(appendCustomCodexModels(models, input.customModels ?? [])),
+      serviceTier,
     ),
     skills: parseCodexSkillsListResponse(skillsResponse, input.cwd),
   } satisfies CodexAppServerProviderSnapshot;
@@ -614,11 +660,11 @@ export const probeCodexSkillsForCwd = Effect.fn("probeCodexSkillsForCwd")(functi
 const emptyCodexModelsFromSettings = (codexSettings: CodexSettings): ServerProvider["models"] =>
   appendCustomCodexModels([], codexSettings.customModels);
 
-const makePendingCodexProvider = (
-  codexSettings: CodexSettings,
-  options?: CodexProviderOptions,
-): Effect.Effect<ServerProviderDraft> =>
-  Effect.gen(function* () {
+export const makePendingCodexProvider = Effect.fn("CodexProvider.makePendingCodexProvider")(
+  function* (
+    codexSettings: CodexSettings,
+    options?: CodexProviderOptions,
+  ): Effect.fn.Return<ServerProviderDraft> {
     const checkedAt = yield* Effect.map(DateTime.now, DateTime.formatIso);
     const models = emptyCodexModelsFromSettings(codexSettings);
     const displayName = options?.displayName ?? CODEX_PRESENTATION.displayName;
@@ -654,7 +700,8 @@ const makePendingCodexProvider = (
         message: `${displayName} provider status has not been checked in this session yet.`,
       },
     });
-  });
+  },
+);
 
 function accountProbeStatus(
   { account, rateLimits }: CodexAppServerProviderSnapshot,
@@ -873,5 +920,3 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     },
   });
 });
-
-export { makePendingCodexProvider };

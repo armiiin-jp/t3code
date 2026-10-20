@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/Button";
 import {
   codexFeedbackNotice,
   type CodexFeedbackSubmission,
@@ -47,17 +48,15 @@ export function ComposerFeedback({
           </Text>
         ) : null}
         {submission.status === "sent" ? (
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label="Copy ID"
+            tone="text"
             onPress={() =>
               copyTextWithHaptic(submission.feedbackId, {
                 target: `${submission.provider === "gapcode" ? "GapCode" : "Codex"} feedback thread ID`,
               })
             }
-            className="self-start py-1 active:opacity-60"
-          >
-            <Text className="text-sm text-foreground">Copy ID</Text>
-          </Pressable>
+          />
         ) : null}
       </View>
     </View>
