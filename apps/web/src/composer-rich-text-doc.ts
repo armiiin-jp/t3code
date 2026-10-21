@@ -520,8 +520,16 @@ interface PendingList {
   items: PendingItem[];
 }
 
+function pendingListText(list: PendingList): string {
+  return list.items
+    .flatMap((item) => [textFromInline(item.content), ...item.children.map(pendingListText)])
+    .join(" ");
+}
+
 function listJson(list: PendingList): InlineJson {
   const first = list.items[0]!.prefix;
+  const allListText = pendingListText(list);
+  const listDir = detectDirectionAttr(allListText);
   const items = list.items.map((item) => {
     const itemText = textFromInline(item.content);
     const itemDir = detectDirectionAttr(itemText);
@@ -541,7 +549,7 @@ function listJson(list: PendingList): InlineJson {
           indent: item.prefix.indent,
           markerSpace: item.prefix.markerSpace,
           contentSpace: item.prefix.contentSpace,
-          ...(itemDir ? { dir: itemDir } : {}),
+          ...(listDir ? { dir: listDir } : {}),
         },
         content,
       };
@@ -552,13 +560,11 @@ function listJson(list: PendingList): InlineJson {
         indent: item.prefix.indent,
         marker: item.prefix.marker,
         space: item.prefix.space,
-        ...(itemDir ? { dir: itemDir } : {}),
+        ...(listDir ? { dir: listDir } : {}),
       },
       content,
     };
   });
-  const allListText = list.items.map((it) => textFromInline(it.content)).join(" ");
-  const listDir = detectDirectionAttr(allListText);
   if (first.kind === "task") {
     return {
       type: "taskList",

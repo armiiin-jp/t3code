@@ -16,6 +16,8 @@ export const DIRECTION_NODE_TYPES = [
 /**
  * Creates the ProseMirror plugin that checks block content changes and assigns
  * proper "dir" attribute to ensure correct bidirectional layout (RTL vs LTR).
+ * List items inherit direction from the whole list so mixed-script entries keep
+ * their markers on one side; their paragraphs still follow their own text.
  */
 export function createComposerTextDirectionPlugin() {
   return new Plugin({
@@ -32,7 +34,9 @@ export function createComposerTextDirectionPlugin() {
         ) {
           return;
         }
-        const text = node.textContent;
+        const parent = newState.doc.resolve(pos).parent;
+        const isListItem = node.type.name === "listItem" || node.type.name === "taskItem";
+        const text = isListItem ? parent.textContent : node.textContent;
         const detected = detectTextDirection(text);
         const targetDir: TextDirection | null = detected === "auto" ? null : detected;
         if (node.attrs.dir !== targetDir) {
