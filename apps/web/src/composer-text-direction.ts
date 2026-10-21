@@ -8,6 +8,9 @@ export const DIRECTION_NODE_TYPES = [
   "blockquote",
   "listItem",
   "taskItem",
+  "bulletList",
+  "orderedList",
+  "taskList",
 ] as const;
 
 /**

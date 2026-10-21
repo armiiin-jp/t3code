@@ -43,7 +43,7 @@ export function isLtrChar(char: string): boolean {
  * Handles mixed Persian/Arabic and English sentences according to Unicode BiDi best practices:
  * 1. If text starts with an RTL character -> "rtl".
  * 2. If text starts with an LTR character (common when Persian technical sentences begin with
- *    command names, library names, or acronyms like "git status را اجرا کن" or "API جدید ساخته شد"):
+ *    command names, library names, or acronyms like "git status را در ترمینال اجرا کن" or "API جدید ساخته شد"):
  *    - If RTL characters outnumber LTR characters, the sentence is classified as "rtl" so adjacent
  *      English words and trailing punctuation retain correct Persian reading order.
  *    - Otherwise -> "ltr".
@@ -58,8 +58,8 @@ export function detectTextDirection(text: string | null | undefined): TextDirect
   const cleaned = text
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`[^`]*`/g, "")
-    // Strip leading markdown prefixes (headings, list markers, quotes, task checkboxes)
-    .replace(/^[\s#>*-]+(?:\s+\[[ xX]\])?\s*/gm, "");
+    // Strip leading markdown prefixes (headings, list markers like -, *, 1., 1), quotes, task checkboxes)
+    .replace(/^[\s#>*-]*(?:\d+[.)]\s+)?(?:\[[ xX]\]\s+)?/gm, "");
 
   let rtlCount = 0;
   let ltrCount = 0;

@@ -47,7 +47,46 @@ export function shouldUseRestingComposerLayout(input: {
  * 8px of top padding, the prompt clamps from min-h-17.5 (70px) to 32px, and
  * the 48px footer leaves flow.
  */
-const COMPOSER_RESTING_EXPANSION_MIN_PX = 94;
+export const COMPOSER_RESTING_EXPANSION_MIN_PX = 94;
+export const COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS = 180;
+const COMPOSER_RESTING_CONTROLS_EXPANSION_REVEAL_DELAY_RATIO = 0.2;
+
+export function shouldAnimateComposerContextStripArrival(input: {
+  isCollapsing: boolean;
+  contextStripIsVisible: boolean;
+  wasContextStripVisible: boolean | null;
+}): boolean {
+  return (
+    input.isCollapsing && input.contextStripIsVisible && input.wasContextStripVisible === false
+  );
+}
+
+export function resolveComposerRestingControlsArrivalTiming(input: {
+  durationMs: number;
+  isCollapsing: boolean;
+}): { durationMs: number; delayMs: number } {
+  const delayMs = input.isCollapsing
+    ? 0
+    : input.durationMs * COMPOSER_RESTING_CONTROLS_EXPANSION_REVEAL_DELAY_RATIO;
+
+  return {
+    durationMs: input.durationMs - delayMs,
+    delayMs,
+  };
+}
+
+export function resolveComposerRestingTransitionSettings(input: {
+  configuredDurationMs: number;
+  motionAllowed: boolean;
+}): { active: boolean; durationMs: number } {
+  return {
+    active: input.motionAllowed,
+    durationMs:
+      input.configuredDurationMs > 0
+        ? input.configuredDurationMs
+        : COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS,
+  };
+}
 
 /**
  * Reserving only the resting height lets a scroll to the end land flush against the short

@@ -116,4 +116,58 @@ describe("ComposerPromptEditor RTL and bidirectional support", () => {
     const domP = container.querySelector(".tiptap p");
     expect(domP?.getAttribute("dir")).toBe("ltr");
   });
+
+  it("assigns dir='rtl' to blockquote when mounted with RTL text", async () => {
+    await mountEditor("> سلام دنیا");
+    const blockquote = container.querySelector(".tiptap blockquote");
+    expect(blockquote).not.toBeNull();
+    expect(blockquote?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("assigns dir='rtl' to ordered list and list item with RTL text", async () => {
+    await mountEditor("1. سلام دنیا");
+    const ol = container.querySelector(".tiptap ol");
+    expect(ol).not.toBeNull();
+    expect(ol?.getAttribute("dir")).toBe("rtl");
+
+    const li = container.querySelector(".tiptap li");
+    expect(li?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("assigns dir='rtl' to bullet list and list item with RTL text", async () => {
+    await mountEditor("- سلام دنیا");
+    const ul = container.querySelector(".tiptap ul");
+    expect(ul).not.toBeNull();
+    expect(ul?.getAttribute("dir")).toBe("rtl");
+
+    const li = container.querySelector(".tiptap li");
+    expect(li?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("assigns dir='rtl' to heading with RTL text", async () => {
+    await mountEditor("# سلام دنیا");
+    const h1 = container.querySelector(".tiptap h1");
+    expect(h1).not.toBeNull();
+    expect(h1?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("dynamically updates dir='rtl' when typing RTL text into a blockquote", async () => {
+    const editor = await mountEditor("> ");
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.insertText("سلام دنیا"));
+    });
+    const blockquote = container.querySelector(".tiptap blockquote");
+    expect(blockquote?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("dynamically updates dir='rtl' when typing RTL text into an ordered list", async () => {
+    const editor = await mountEditor("1. ");
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.insertText("آیتم اول"));
+    });
+    const ol = container.querySelector(".tiptap ol");
+    expect(ol?.getAttribute("dir")).toBe("rtl");
+    const li = container.querySelector(".tiptap li");
+    expect(li?.getAttribute("dir")).toBe("rtl");
+  });
 });

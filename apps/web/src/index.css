@@ -1813,6 +1813,10 @@ code {
   unicode-bidi: isolate;
 }
 
+:is(.chat-markdown, .composer-tiptap) :is(strong, em, s, a) {
+  unicode-bidi: isolate;
+}
+
 .chat-markdown > :first-child {
   margin-top: 0;
 }
@@ -1943,7 +1947,9 @@ code {
 }
 
 .composer-tiptap ul {
-  padding-left: max(1.25rem, 2ch);
+  padding-left: 0;
+  padding-inline-start: max(1.25rem, 2ch);
+  padding-inline-end: 0;
 }
 
 :is(.chat-markdown, .composer-tiptap) ul ul {
@@ -2394,6 +2400,7 @@ code {
   text-decoration: none;
   user-select: none;
   pointer-events: none;
+  unicode-bidi: isolate;
 }
 
 /* Selected chips (node selection from arrowing into or clicking a chip). */

@@ -36,6 +36,7 @@ import { nextOrderedMarkerText } from "~/composer-list-continuation";
 import { parseInlineMarkdown, RICH_TEXT_DELIMITERS, type RichTextMark } from "~/composer-rich-text";
 import { collectInlineContextIds } from "~/lib/composerContextReferences";
 import { markdownMathRanges } from "@t3tools/shared/markdownMath";
+import { detectTextDirection, type TextDirection } from "~/lib/bidi";
 
 export type SkillMeta = { label: string; description: string | null };
 
@@ -493,6 +494,21 @@ function atomJsonForSegment(
   };
 }
 
+function textFromInline(inlines: InlineJson[]): string {
+  let result = "";
+  for (const item of inlines) {
+    if (typeof item.text === "string") {
+      result += item.text;
+    }
+  }
+  return result;
+}
+
+function detectDirectionAttr(text: string): TextDirection | null {
+  const d = detectTextDirection(text);
+  return d === "auto" ? null : d;
+}
+
 interface PendingItem {
   prefix: ListLinePrefix;
   content: InlineJson[];
@@ -507,8 +523,14 @@ interface PendingList {
 function listJson(list: PendingList): InlineJson {
   const first = list.items[0]!.prefix;
   const items = list.items.map((item) => {
+    const itemText = textFromInline(item.content);
+    const itemDir = detectDirectionAttr(itemText);
     const content = [
-      { type: "paragraph", content: item.content },
+      {
+        type: "paragraph",
+        ...(itemDir ? { attrs: { dir: itemDir } } : {}),
+        content: item.content,
+      },
       ...item.children.map((child) => listJson(child)),
     ];
     if (item.prefix.kind === "task") {
@@ -519,25 +541,46 @@ function listJson(list: PendingList): InlineJson {
           indent: item.prefix.indent,
           markerSpace: item.prefix.markerSpace,
           contentSpace: item.prefix.contentSpace,
+          ...(itemDir ? { dir: itemDir } : {}),
         },
         content,
       };
     }
     return {
       type: "listItem",
-      attrs: { indent: item.prefix.indent, marker: item.prefix.marker, space: item.prefix.space },
+      attrs: {
+        indent: item.prefix.indent,
+        marker: item.prefix.marker,
+        space: item.prefix.space,
+        ...(itemDir ? { dir: itemDir } : {}),
+      },
       content,
     };
   });
-  if (first.kind === "task") return { type: "taskList", content: items };
-  if (first.kind === "ordered") {
+  const allListText = list.items.map((it) => textFromInline(it.content)).join(" ");
+  const listDir = detectDirectionAttr(allListText);
+  if (first.kind === "task") {
     return {
-      type: "orderedList",
-      attrs: { start: Number.parseInt(first.marker, 10) || 1 },
+      type: "taskList",
+      attrs: { ...(listDir ? { dir: listDir } : {}) },
       content: items,
     };
   }
-  return { type: "bulletList", content: items };
+  if (first.kind === "ordered") {
+    return {
+      type: "orderedList",
+      attrs: {
+        start: Number.parseInt(first.marker, 10) || 1,
+        ...(listDir ? { dir: listDir } : {}),
+      },
+      content: items,
+    };
+  }
+  return {
+    type: "bulletList",
+    attrs: { ...(listDir ? { dir: listDir } : {}) },
+    content: items,
+  };
 }
 
 function textJsonForSpan(text: string, marks: RichTextMark[]): Record<string, unknown> {
@@ -561,10 +604,14 @@ export function buildTiptapContent(
   options?: { styling?: boolean; blocks?: boolean; literalText?: boolean; literalLength?: number },
 ): Record<string, unknown>[] {
   if (options?.literalText) {
-    return value.split("\n").map((line) => ({
-      type: "paragraph",
-      ...(line ? { content: [{ type: "text", text: line }] } : {}),
-    }));
+    return value.split("\n").map((line) => {
+      const dir = detectDirectionAttr(line);
+      return {
+        type: "paragraph",
+        ...(dir ? { attrs: { dir } } : {}),
+        ...(line ? { content: [{ type: "text", text: line }] } : {}),
+      };
+    });
   }
   const styling = options?.styling ?? true;
   const blockSyntax = styling && (options?.blocks ?? true);
@@ -712,10 +759,19 @@ export function buildTiptapContent(
   let openQuote: { prefix: string; content: InlineJson[][] } | null = null;
   const flushQuote = () => {
     if (!openQuote) return;
+    const allQuoteText = openQuote.content.map((inline) => textFromInline(inline)).join(" ");
+    const quoteDir = detectDirectionAttr(allQuoteText);
     blocks.push({
       type: "blockquote",
-      attrs: { prefix: openQuote.prefix },
-      content: openQuote.content.map((inline) => ({ type: "paragraph", content: inline })),
+      attrs: { prefix: openQuote.prefix, ...(quoteDir ? { dir: quoteDir } : {}) },
+      content: openQuote.content.map((inline) => {
+        const pDir = detectDirectionAttr(textFromInline(inline)) ?? quoteDir;
+        return {
+          type: "paragraph",
+          ...(pDir ? { attrs: { dir: pDir } } : {}),
+          content: inline,
+        };
+      }),
     });
     openQuote = null;
   };
@@ -740,9 +796,15 @@ export function buildTiptapContent(
     }
     if ("heading" in entry) {
       flushLists();
+      const headingText = textFromInline(entry.heading.inline);
+      const headingDir = detectDirectionAttr(headingText);
       blocks.push({
         type: "heading",
-        attrs: { level: entry.heading.level, space: entry.heading.space },
+        attrs: {
+          level: entry.heading.level,
+          space: entry.heading.space,
+          ...(headingDir ? { dir: headingDir } : {}),
+        },
         content: entry.heading.inline,
       });
       continue;
@@ -750,7 +812,13 @@ export function buildTiptapContent(
     const line = entry.line;
     if (!line.list) {
       flushLists();
-      blocks.push({ type: "paragraph", content: line.inline });
+      const pText = textFromInline(line.inline);
+      const pDir = detectDirectionAttr(pText);
+      blocks.push({
+        type: "paragraph",
+        ...(pDir ? { attrs: { dir: pDir } } : {}),
+        content: line.inline,
+      });
       continue;
     }
     const item: PendingItem = { prefix: line.list, content: line.inline, children: [] };

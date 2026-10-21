@@ -2,9 +2,12 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { resolveContextStripLabelsCompact } from "./BranchToolbar.logic";
 import {
+  resolveComposerRestingControlsArrivalTiming,
+  resolveComposerRestingTransitionSettings,
   resolveComposerTimelineInset,
   resolveRestingComposerControlsLayout,
   resolveRestingComposerControlsNaturalWidth,
+  shouldAnimateComposerContextStripArrival,
 } from "./composerFooterLayout";
 
 describe("resolveComposerTimelineInset", () => {
@@ -57,6 +60,92 @@ describe("resolveComposerTimelineInset", () => {
         isResting: true,
       }),
     ).toBe(collapsed);
+  });
+});
+
+describe("resolveComposerRestingTransitionSettings", () => {
+  it("uses a short default duration when panel animations are disabled", () => {
+    expect(
+      resolveComposerRestingTransitionSettings({ configuredDurationMs: 0, motionAllowed: true }),
+    ).toEqual({ active: true, durationMs: 180 });
+  });
+
+  it("keeps the configured duration and respects motion suppression", () => {
+    expect(
+      resolveComposerRestingTransitionSettings({
+        configuredDurationMs: 240,
+        motionAllowed: false,
+      }),
+    ).toEqual({ active: false, durationMs: 240 });
+  });
+});
+
+describe("resolveComposerRestingControlsArrivalTiming", () => {
+  it("reveals the context-strip controls as soon as the composer collapses", () => {
+    expect(
+      resolveComposerRestingControlsArrivalTiming({ durationMs: 180, isCollapsing: true }),
+    ).toEqual({
+      durationMs: 180,
+      delayMs: 0,
+    });
+  });
+
+  it("starts the returning footer controls early and lets them fade for most of the expansion", () => {
+    expect(
+      resolveComposerRestingControlsArrivalTiming({ durationMs: 180, isCollapsing: false }),
+    ).toEqual({
+      durationMs: 144,
+      delayMs: 36,
+    });
+  });
+});
+
+describe("shouldAnimateComposerContextStripArrival", () => {
+  it("animates a newly visible strip as the composer collapses", () => {
+    expect(
+      shouldAnimateComposerContextStripArrival({
+        isCollapsing: true,
+        contextStripIsVisible: true,
+        wasContextStripVisible: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps an already visible strip in its existing layout", () => {
+    expect(
+      shouldAnimateComposerContextStripArrival({
+        isCollapsing: true,
+        contextStripIsVisible: true,
+        wasContextStripVisible: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not animate a hidden strip or a first observation", () => {
+    expect(
+      shouldAnimateComposerContextStripArrival({
+        isCollapsing: true,
+        contextStripIsVisible: false,
+        wasContextStripVisible: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAnimateComposerContextStripArrival({
+        isCollapsing: true,
+        contextStripIsVisible: true,
+        wasContextStripVisible: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not replay the entrance when the composer expands", () => {
+    expect(
+      shouldAnimateComposerContextStripArrival({
+        isCollapsing: false,
+        contextStripIsVisible: true,
+        wasContextStripVisible: false,
+      }),
+    ).toBe(false);
   });
 });
 
