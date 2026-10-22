@@ -35,7 +35,7 @@ import { splitPromptIntoComposerSegments } from "~/composer-editor-mentions";
 import { nextOrderedMarkerText } from "~/composer-list-continuation";
 import { parseInlineMarkdown, RICH_TEXT_DELIMITERS, type RichTextMark } from "~/composer-rich-text";
 import { collectInlineContextIds } from "~/lib/composerContextReferences";
-import { markdownMathRanges } from "@t3tools/shared/markdownMath";
+import { composerMathRanges } from "@t3tools/shared/composerInlineTokens";
 import { detectTextDirection, type TextDirection } from "~/lib/bidi";
 
 export type SkillMeta = { label: string; description: string | null };
@@ -127,9 +127,14 @@ function codePairCaretPlugin(type: MarkType) {
  */
 export const ComposerCodeExtension = Code.extend({
   excludes: "code",
-  // ArrowRight leaves code through the caret stops at styled edges, so the
-  // stock exit (inserting a space at the end of a line) is not needed.
+  // The forward arrow leaves code through the caret stops at styled edges, so
+  // the stock exit (inserting a space at the end of a line) is not needed.
   exitable: false,
+  // Code reads left to right inside an Arabic or Hebrew line, and the isolate
+  // keeps its punctuation from trading places with the text around it.
+  addOptions() {
+    return { ...this.parent!(), HTMLAttributes: { dir: "ltr" } };
+  },
   addProseMirrorPlugins() {
     return [...(this.parent?.() ?? []), codePairCaretPlugin(this.type)];
   },
@@ -494,21 +499,6 @@ function atomJsonForSegment(
   };
 }
 
-function textFromInline(inlines: InlineJson[]): string {
-  let result = "";
-  for (const item of inlines) {
-    if (typeof item.text === "string") {
-      result += item.text;
-    }
-  }
-  return result;
-}
-
-function detectDirectionAttr(text: string): TextDirection | null {
-  const d = detectTextDirection(text);
-  return d === "auto" ? null : d;
-}
-
 interface PendingItem {
   prefix: ListLinePrefix;
   content: InlineJson[];
@@ -520,6 +510,19 @@ interface PendingList {
   items: PendingItem[];
 }
 
+function textFromInline(inlines: InlineJson[]): string {
+  let result = "";
+  for (const item of inlines) {
+    if (typeof item.text === "string") result += item.text;
+  }
+  return result;
+}
+
+function directionAttr(text: string): TextDirection | null {
+  const direction = detectTextDirection(text);
+  return direction === "auto" ? null : direction;
+}
+
 function pendingListText(list: PendingList): string {
   return list.items
     .flatMap((item) => [textFromInline(item.content), ...item.children.map(pendingListText)])
@@ -528,11 +531,9 @@ function pendingListText(list: PendingList): string {
 
 function listJson(list: PendingList): InlineJson {
   const first = list.items[0]!.prefix;
-  const allListText = pendingListText(list);
-  const listDir = detectDirectionAttr(allListText);
+  const listDir = directionAttr(pendingListText(list));
   const items = list.items.map((item) => {
-    const itemText = textFromInline(item.content);
-    const itemDir = detectDirectionAttr(itemText);
+    const itemDir = directionAttr(textFromInline(item.content));
     const content = [
       {
         type: "paragraph",
@@ -566,11 +567,7 @@ function listJson(list: PendingList): InlineJson {
     };
   });
   if (first.kind === "task") {
-    return {
-      type: "taskList",
-      attrs: { ...(listDir ? { dir: listDir } : {}) },
-      content: items,
-    };
+    return { type: "taskList", attrs: listDir ? { dir: listDir } : {}, content: items };
   }
   if (first.kind === "ordered") {
     return {
@@ -584,7 +581,7 @@ function listJson(list: PendingList): InlineJson {
   }
   return {
     type: "bulletList",
-    attrs: { ...(listDir ? { dir: listDir } : {}) },
+    ...(listDir ? { attrs: { dir: listDir } } : {}),
     content: items,
   };
 }
@@ -610,14 +607,10 @@ export function buildTiptapContent(
   options?: { styling?: boolean; blocks?: boolean; literalText?: boolean; literalLength?: number },
 ): Record<string, unknown>[] {
   if (options?.literalText) {
-    return value.split("\n").map((line) => {
-      const dir = detectDirectionAttr(line);
-      return {
-        type: "paragraph",
-        ...(dir ? { attrs: { dir } } : {}),
-        ...(line ? { content: [{ type: "text", text: line }] } : {}),
-      };
-    });
+    return value.split("\n").map((line) => ({
+      type: "paragraph",
+      ...(line ? { content: [{ type: "text", text: line }] } : {}),
+    }));
   }
   const styling = options?.styling ?? true;
   const blockSyntax = styling && (options?.blocks ?? true);
@@ -629,7 +622,7 @@ export function buildTiptapContent(
   const atomSources: string[] = [];
   const literal = value.slice(0, options?.literalLength ?? 0);
   const remainder = value.slice(literal.length);
-  const formulas = markdownMathRanges(remainder);
+  const formulas = composerMathRanges(remainder);
   let offset = 0;
   const chunks: Array<{ text: string } | { source: string }> = [];
   for (const formula of formulas) {
@@ -765,19 +758,10 @@ export function buildTiptapContent(
   let openQuote: { prefix: string; content: InlineJson[][] } | null = null;
   const flushQuote = () => {
     if (!openQuote) return;
-    const allQuoteText = openQuote.content.map((inline) => textFromInline(inline)).join(" ");
-    const quoteDir = detectDirectionAttr(allQuoteText);
     blocks.push({
       type: "blockquote",
-      attrs: { prefix: openQuote.prefix, ...(quoteDir ? { dir: quoteDir } : {}) },
-      content: openQuote.content.map((inline) => {
-        const pDir = detectDirectionAttr(textFromInline(inline)) ?? quoteDir;
-        return {
-          type: "paragraph",
-          ...(pDir ? { attrs: { dir: pDir } } : {}),
-          content: inline,
-        };
-      }),
+      attrs: { prefix: openQuote.prefix },
+      content: openQuote.content.map((inline) => ({ type: "paragraph", content: inline })),
     });
     openQuote = null;
   };
@@ -802,15 +786,9 @@ export function buildTiptapContent(
     }
     if ("heading" in entry) {
       flushLists();
-      const headingText = textFromInline(entry.heading.inline);
-      const headingDir = detectDirectionAttr(headingText);
       blocks.push({
         type: "heading",
-        attrs: {
-          level: entry.heading.level,
-          space: entry.heading.space,
-          ...(headingDir ? { dir: headingDir } : {}),
-        },
+        attrs: { level: entry.heading.level, space: entry.heading.space },
         content: entry.heading.inline,
       });
       continue;
@@ -818,13 +796,7 @@ export function buildTiptapContent(
     const line = entry.line;
     if (!line.list) {
       flushLists();
-      const pText = textFromInline(line.inline);
-      const pDir = detectDirectionAttr(pText);
-      blocks.push({
-        type: "paragraph",
-        ...(pDir ? { attrs: { dir: pDir } } : {}),
-        content: line.inline,
-      });
+      blocks.push({ type: "paragraph", content: line.inline });
       continue;
     }
     const item: PendingItem = { prefix: line.list, content: line.inline, children: [] };
