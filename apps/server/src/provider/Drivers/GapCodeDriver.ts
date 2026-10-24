@@ -138,226 +138,232 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
   configSchema: GapCodeSettings,
   defaultConfig: (): GapCodeSettings => decodeGapCodeSettings({}),
   usage: gapCodeUsageReader,
-  create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
-    Effect.gen(function* () {
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const httpClient = yield* HttpClient.HttpClient;
-      const resetCreditCoordinator = yield* ResetCreditCoordinator.ResetCreditCoordinator;
-      const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
-      const modelCatalog = yield* ModelCatalog.ModelCatalog;
-      const currentCatalog = modelCatalog.current(DRIVER_KIND);
-      const processEnv = yield* mergeProviderInstanceEnvironment(environment);
-      const providerEnv = { ...processEnv };
-      delete providerEnv.CODEX_HOME;
-      delete providerEnv.T3CODE_CODEX_LAUNCH_ARGS;
-      const continuationIdentity = defaultProviderContinuationIdentity({
-        driverKind: DRIVER_KIND,
-        instanceId,
-      });
-      const stampIdentity = withInstanceIdentity({
-        instanceId,
-        driverKind: DRIVER_KIND,
-        displayName,
-        accentColor,
-        continuationGroupKey: continuationIdentity.continuationKey,
-      });
-      const effectiveConfig = {
-        ...toCodexSettings({ ...config, enabled }),
-        binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
-      } satisfies CodexSettings;
-      const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
-        resolveProviderMaintenanceCapabilitiesEffect(gapCodeMaintenanceResolver, {
-          binaryPath: effectiveConfig.binaryPath,
-          env: providerEnv,
-        }).pipe(
-          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-          Effect.provideService(FileSystem.FileSystem, fileSystem),
-          Effect.provideService(Path.Path, pathService),
-        ),
-      );
-      const checkProvider = modelCatalog.refreshInBackground.pipe(
-        Effect.andThen(
-          Effect.zipWith(
-            checkCodexProviderStatus(
-              effectiveConfig,
-              undefined,
-              providerEnv,
-              undefined,
-              PROVIDER_OPTIONS,
-            ),
-            currentCatalog,
-            (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
-            { concurrent: true },
-          ),
-        ),
+  create: Effect.fn("GapCodeDriver.create")(function* ({
+    instanceId,
+    displayName,
+    accentColor,
+    environment,
+    enabled,
+    config,
+  }) {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const httpClient = yield* HttpClient.HttpClient;
+    const resetCreditCoordinator = yield* ResetCreditCoordinator.ResetCreditCoordinator;
+    const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
+    const modelCatalog = yield* ModelCatalog.ModelCatalog;
+    const currentCatalog = modelCatalog.current(DRIVER_KIND);
+    const processEnv = yield* mergeProviderInstanceEnvironment(environment);
+    const providerEnv = { ...processEnv };
+    delete providerEnv.CODEX_HOME;
+    delete providerEnv.T3CODE_CODEX_LAUNCH_ARGS;
+    const continuationIdentity = defaultProviderContinuationIdentity({
+      driverKind: DRIVER_KIND,
+      instanceId,
+    });
+    const stampIdentity = withInstanceIdentity({
+      instanceId,
+      driverKind: DRIVER_KIND,
+      displayName,
+      accentColor,
+      continuationGroupKey: continuationIdentity.continuationKey,
+    });
+    const effectiveConfig = {
+      ...toCodexSettings({ ...config, enabled }),
+      binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
+    } satisfies CodexSettings;
+    const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
+      resolveProviderMaintenanceCapabilitiesEffect(gapCodeMaintenanceResolver, {
+        binaryPath: effectiveConfig.binaryPath,
+        env: providerEnv,
+      }).pipe(
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, pathService),
-      );
-      const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
-      const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<CodexSettings>>({
-        resolveMaintenance,
-        getSettings: snapshotSettings.getSettings,
-        streamSettings: snapshotSettings.streamSettings,
-        haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-        initialSnapshot: (settings) =>
-          Effect.zipWith(
-            makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS),
-            currentCatalog,
-            (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
+      ),
+    );
+    const checkProvider = modelCatalog.refreshInBackground.pipe(
+      Effect.andThen(
+        Effect.zipWith(
+          checkCodexProviderStatus(
+            effectiveConfig,
+            undefined,
+            providerEnv,
+            undefined,
+            PROVIDER_OPTIONS,
           ),
-        checkProvider,
-        enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
-          resolveMaintenance().pipe(
-            Effect.flatMap((maintenanceCapabilities) =>
-              enrichProviderSnapshotWithVersionAdvisory(snapshot, maintenanceCapabilities, {
-                enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
-              }),
-            ),
-            Effect.provideService(HttpClient.HttpClient, httpClient),
-            Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
-            Effect.flatMap((enrichedSnapshot) => publishSnapshot(enrichedSnapshot)),
-          ),
-      }).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ProviderDriverError({
-              driver: DRIVER_KIND,
-              instanceId,
-              detail: `Failed to build GapCode snapshot: ${cause.message ?? String(cause)}`,
-              cause,
-            }),
+          currentCatalog,
+          (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
+          { concurrent: true },
         ),
-      );
-      const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
-      // GapGPT proxies streaming turns through an upstream OpenAI pool whose
-      // in-flight `account/rateLimits/updated` notifications reflect the pool's
-      // shared allowance rather than the user's GapGPT plan quota. Instead of
-      // overwriting the true limits with proxy telemetry mid-turn, debounce a
-      // snapshot refresh that reads the user's authentic limits via `account/rateLimits/read`.
-      const refreshUsageLimitsQueue = yield* Queue.sliding<void>(1);
-      yield* Stream.fromQueue(refreshUsageLimitsQueue).pipe(
-        Stream.debounce(Duration.seconds(3)),
-        Stream.runForEach(() => snapshot.refresh.pipe(Effect.ignoreCause({ log: true }))),
-        Effect.forkScoped,
-      );
-      const orchestrationAdapter = yield* createCodexAdapterV2(
-        {
-          instanceId,
-          displayName,
-          accentColor,
-          environment: environment.filter(
-            (v) => v.name !== "CODEX_HOME" && v.name !== "T3CODE_CODEX_LAUNCH_ARGS",
-          ),
-          enabled,
-          config: effectiveConfig,
-        },
-        {
-          driver: DRIVER_KIND,
-          onUsageLimits: () => Queue.offer(refreshUsageLimitsQueue, undefined).pipe(Effect.asVoid),
-        },
-      ).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ProviderDriverError({
-              driver: DRIVER_KIND,
-              instanceId,
-              detail: "Failed to build GapCode orchestration adapter.",
-              cause,
-            }),
+      ),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+      Effect.provideService(FileSystem.FileSystem, fileSystem),
+      Effect.provideService(Path.Path, pathService),
+    );
+    const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
+    const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<CodexSettings>>({
+      resolveMaintenance,
+      getSettings: snapshotSettings.getSettings,
+      streamSettings: snapshotSettings.streamSettings,
+      haveSettingsChanged: haveProviderSnapshotSettingsChanged,
+      initialSnapshot: (settings) =>
+        Effect.zipWith(
+          makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS),
+          currentCatalog,
+          (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
         ),
-      );
-      const textGeneration = yield* makeCodexTextGeneration(effectiveConfig, providerEnv, models);
-      const accountKey = `gapcode:${normalizeCommandPath(effectiveConfig.binaryPath || "gapcode")}`;
-      const consumeResetCredit: NonNullable<ProviderInstance["consumeResetCredit"]> = () =>
-        resetCreditCoordinator
-          .redeem(accountKey, (idempotencyKey) =>
-            Effect.gen(function* () {
-              const { client } = yield* withCodexAppServerClient({
-                binaryPath: effectiveConfig.binaryPath,
-                launchArgs: effectiveConfig.launchArgs,
-                cwd: process.cwd(),
-                environment: providerEnv,
-              });
-              const response = yield* client.request("account/rateLimitResetCredit/consume", {
-                idempotencyKey,
-              });
-              return response.outcome;
-            }).pipe(Effect.scoped, Effect.timeout("20 seconds")),
-          )
-          .pipe(
-            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-            Effect.mapError(
-              (cause) =>
-                new ProviderDriverError({
-                  driver: DRIVER_KIND,
-                  instanceId,
-                  detail: "GapCode could not redeem the reset credit.",
-                  cause,
-                }),
-            ),
-            Effect.tap((outcome) =>
-              Effect.gen(function* () {
-                const before = (yield* snapshot.getSnapshot).usageLimits?.checkedAt;
-                const refreshed = yield* snapshot.refresh;
-                const after = refreshed.usageLimits?.checkedAt;
-                if (
-                  outcome === "reset" &&
-                  (after === undefined ||
-                    after === before ||
-                    refreshed.usageLimits?.unavailable?.reason === "probeFailed")
-                ) {
-                  return yield* new ProviderDriverError({
-                    driver: DRIVER_KIND,
-                    instanceId,
-                    detail:
-                      "The reset was applied, but GapCode could not confirm the new limits. Refresh to check.",
-                  });
-                }
-              }),
-            ),
-          );
-
-      return {
+      checkProvider,
+      enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
+        resolveMaintenance().pipe(
+          Effect.flatMap((maintenanceCapabilities) =>
+            enrichProviderSnapshotWithVersionAdvisory(snapshot, maintenanceCapabilities, {
+              enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
+            }),
+          ),
+          Effect.provideService(HttpClient.HttpClient, httpClient),
+          Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
+          Effect.flatMap((enrichedSnapshot) => publishSnapshot(enrichedSnapshot)),
+        ),
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ProviderDriverError({
+            driver: DRIVER_KIND,
+            instanceId,
+            detail: `Failed to build GapCode snapshot: ${cause.message ?? String(cause)}`,
+            cause,
+          }),
+      ),
+    );
+    const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
+    // GapGPT proxies streaming turns through an upstream OpenAI pool whose
+    // in-flight `account/rateLimits/updated` notifications reflect the pool's
+    // shared allowance rather than the user's GapGPT plan quota. Instead of
+    // overwriting the true limits with proxy telemetry mid-turn, debounce a
+    // snapshot refresh that reads the user's authentic limits via `account/rateLimits/read`.
+    const refreshUsageLimitsQueue = yield* Queue.sliding<void>(1);
+    yield* Stream.fromQueue(refreshUsageLimitsQueue).pipe(
+      Stream.debounce(Duration.seconds(3)),
+      Stream.runForEach(() => snapshot.refresh.pipe(Effect.ignoreCause({ log: true }))),
+      Effect.forkScoped,
+    );
+    const orchestrationAdapter = yield* createCodexAdapterV2(
+      {
         instanceId,
-        driverKind: DRIVER_KIND,
-        continuationIdentity,
         displayName,
         accentColor,
+        environment: environment.filter(
+          (v) => v.name !== "CODEX_HOME" && v.name !== "T3CODE_CODEX_LAUNCH_ARGS",
+        ),
         enabled,
-        snapshot,
-        snapshotForCwd: (cwd) =>
-          !effectiveConfig.enabled
-            ? snapshot.getSnapshot
-            : Effect.all([
-                snapshot.getSnapshot,
-                probeCodexSkillsForCwd({
-                  binaryPath: effectiveConfig.binaryPath,
-                  launchArgs: effectiveConfig.launchArgs,
-                  cwd,
-                  environment: providerEnv,
-                }).pipe(
-                  Effect.scoped,
-                  Effect.timeout("20 seconds"),
-                  Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-                ),
-              ]).pipe(
-                Effect.map(([provider, skills]) => ({ ...provider, skills })),
-                Effect.mapError(
-                  (cause) =>
-                    new ProviderDriverError({
-                      driver: DRIVER_KIND,
-                      instanceId,
-                      detail: `Failed to probe GapCode skills for '${cwd}'`,
-                      cause,
-                    }),
-                ),
+        config: effectiveConfig,
+      },
+      {
+        driver: DRIVER_KIND,
+        onUsageLimits: () => Queue.offer(refreshUsageLimitsQueue, undefined).pipe(Effect.asVoid),
+      },
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ProviderDriverError({
+            driver: DRIVER_KIND,
+            instanceId,
+            detail: "Failed to build GapCode orchestration adapter.",
+            cause,
+          }),
+      ),
+    );
+    const textGeneration = yield* makeCodexTextGeneration(effectiveConfig, providerEnv, models);
+    const accountKey = `gapcode:${normalizeCommandPath(effectiveConfig.binaryPath || "gapcode")}`;
+    const consumeResetCredit: NonNullable<ProviderInstance["consumeResetCredit"]> = () =>
+      resetCreditCoordinator
+        .redeem(accountKey, (idempotencyKey) =>
+          Effect.gen(function* () {
+            const { client } = yield* withCodexAppServerClient({
+              binaryPath: effectiveConfig.binaryPath,
+              launchArgs: effectiveConfig.launchArgs,
+              cwd: process.cwd(),
+              environment: providerEnv,
+            });
+            const response = yield* client.request("account/rateLimitResetCredit/consume", {
+              idempotencyKey,
+            });
+            return response.outcome;
+          }).pipe(Effect.scoped, Effect.timeout("20 seconds")),
+        )
+        .pipe(
+          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+          Effect.mapError(
+            (cause) =>
+              new ProviderDriverError({
+                driver: DRIVER_KIND,
+                instanceId,
+                detail: "GapCode could not redeem the reset credit.",
+                cause,
+              }),
+          ),
+          Effect.tap((outcome) =>
+            Effect.gen(function* () {
+              const before = (yield* snapshot.getSnapshot).usageLimits?.checkedAt;
+              const refreshed = yield* snapshot.refresh;
+              const after = refreshed.usageLimits?.checkedAt;
+              if (
+                outcome === "reset" &&
+                (after === undefined ||
+                  after === before ||
+                  refreshed.usageLimits?.unavailable?.reason === "probeFailed")
+              ) {
+                return yield* new ProviderDriverError({
+                  driver: DRIVER_KIND,
+                  instanceId,
+                  detail:
+                    "The reset was applied, but GapCode could not confirm the new limits. Refresh to check.",
+                });
+              }
+            }),
+          ),
+        );
+
+    return {
+      instanceId,
+      driverKind: DRIVER_KIND,
+      continuationIdentity,
+      displayName,
+      accentColor,
+      enabled,
+      snapshot,
+      snapshotForCwd: (cwd) =>
+        !effectiveConfig.enabled
+          ? snapshot.getSnapshot
+          : Effect.all([
+              snapshot.getSnapshot,
+              probeCodexSkillsForCwd({
+                binaryPath: effectiveConfig.binaryPath,
+                launchArgs: effectiveConfig.launchArgs,
+                cwd,
+                environment: providerEnv,
+              }).pipe(
+                Effect.scoped,
+                Effect.timeout("20 seconds"),
+                Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
               ),
-        consumeResetCredit,
-        orchestrationAdapter,
-        textGeneration,
-      } satisfies ProviderInstance;
-    }),
+            ]).pipe(
+              Effect.map(([provider, skills]) => ({ ...provider, skills })),
+              Effect.mapError(
+                (cause) =>
+                  new ProviderDriverError({
+                    driver: DRIVER_KIND,
+                    instanceId,
+                    detail: `Failed to probe GapCode skills for '${cwd}'`,
+                    cause,
+                  }),
+              ),
+            ),
+      consumeResetCredit,
+      orchestrationAdapter,
+      textGeneration,
+    } satisfies ProviderInstance;
+  }),
 };

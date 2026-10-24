@@ -47,8 +47,8 @@ export function shouldUseRestingComposerLayout(input: {
  * 8px of top padding, the prompt clamps from min-h-17.5 (70px) to 32px, and
  * the 48px footer leaves flow.
  */
-export const COMPOSER_RESTING_EXPANSION_MIN_PX = 94;
-export const COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS = 180;
+const COMPOSER_RESTING_EXPANSION_MIN_PX = 94;
+const COMPOSER_RESTING_TRANSITION_DEFAULT_DURATION_MS = 180;
 const COMPOSER_RESTING_CONTROLS_EXPANSION_REVEAL_DELAY_RATIO = 0.2;
 
 export function shouldAnimateComposerContextStripArrival(input: {

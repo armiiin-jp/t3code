@@ -16,7 +16,7 @@ describe("ChatMarkdown RTL support and bidirectional text layout", () => {
       <ChatMarkdown cwd={undefined} text="Hello world! This is plain English." />,
     );
     expect(html).not.toContain('dir="rtl"');
-    expect(html).toContain("<p>");
+    expect(html).toContain('<p dir="ltr">');
   });
 
   it("renders Persian sentences with adjacent English words with dir='rtl'", () => {
@@ -50,7 +50,7 @@ describe("ChatMarkdown RTL support and bidirectional text layout", () => {
       />,
     );
     expect(html).not.toContain('dir="rtl"');
-    expect(html).toContain("<p>");
+    expect(html).toContain('<p dir="ltr">');
   });
 
   it("renders Persian headings with dir='rtl'", () => {
@@ -69,9 +69,7 @@ describe("ChatMarkdown RTL support and bidirectional text layout", () => {
     );
     const items = [...html.matchAll(/<li[^>]*>/g)].map((m) => m[0]);
     expect(items).toHaveLength(3);
-    for (const item of items) {
-      expect(item).toContain('dir="rtl"');
-    }
+    expect(html.match(/<ul[^>]*>/)?.[0]).toContain('dir="rtl"');
   });
 
   it("renders Persian blockquotes with dir='rtl'", () => {

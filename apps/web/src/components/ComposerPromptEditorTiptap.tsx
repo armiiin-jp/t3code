@@ -873,7 +873,6 @@ function createComposerExtensions(richText: boolean) {
     ComposerCitationExtension,
     ComposerContextReferenceExtension,
     ComposerMarkersExtension,
-    ComposerTextDirectionExtension,
     ...(richText
       ? [
           ComposerBoldSelectionOnlyExtension,
