@@ -37,7 +37,6 @@ import { nextOrderedMarkerText } from "~/composer-list-continuation";
 import { parseInlineMarkdown, RICH_TEXT_DELIMITERS, type RichTextMark } from "~/composer-rich-text";
 import { collectInlineContextIds } from "~/lib/composerContextReferences";
 import { composerMathRanges } from "@t3tools/shared/composerInlineTokens";
-import { detectTextDirection, type TextDirection } from "~/lib/bidi";
 
 export type SkillMeta = { label: string; description: string | null };
 
@@ -525,36 +524,11 @@ interface PendingList {
   items: PendingItem[];
 }
 
-function textFromInline(inlines: InlineJson[]): string {
-  let result = "";
-  for (const item of inlines) {
-    if (typeof item.text === "string") result += item.text;
-  }
-  return result;
-}
-
-function directionAttr(text: string): TextDirection | null {
-  const direction = detectTextDirection(text);
-  return direction === "auto" ? null : direction;
-}
-
-function pendingListText(list: PendingList): string {
-  return list.items
-    .flatMap((item) => [textFromInline(item.content), ...item.children.map(pendingListText)])
-    .join(" ");
-}
-
 function listJson(list: PendingList): InlineJson {
   const first = list.items[0]!.prefix;
-  const listDir = directionAttr(pendingListText(list));
   const items = list.items.map((item) => {
-    const itemDir = directionAttr(textFromInline(item.content));
     const content = [
-      {
-        type: "paragraph",
-        ...(itemDir ? { attrs: { dir: itemDir } } : {}),
-        content: item.content,
-      },
+      { type: "paragraph", content: item.content },
       ...item.children.map((child) => listJson(child)),
     ];
     if (item.prefix.kind === "task") {
@@ -565,7 +539,6 @@ function listJson(list: PendingList): InlineJson {
           indent: item.prefix.indent,
           markerSpace: item.prefix.markerSpace,
           contentSpace: item.prefix.contentSpace,
-          ...(listDir ? { dir: listDir } : {}),
         },
         content,
       };
@@ -576,29 +549,19 @@ function listJson(list: PendingList): InlineJson {
         indent: item.prefix.indent,
         marker: item.prefix.marker,
         space: item.prefix.space,
-        ...(listDir ? { dir: listDir } : {}),
       },
       content,
     };
   });
-  if (first.kind === "task") {
-    return { type: "taskList", attrs: listDir ? { dir: listDir } : {}, content: items };
-  }
+  if (first.kind === "task") return { type: "taskList", content: items };
   if (first.kind === "ordered") {
     return {
       type: "orderedList",
-      attrs: {
-        start: Number.parseInt(first.marker, 10) || 1,
-        ...(listDir ? { dir: listDir } : {}),
-      },
+      attrs: { start: Number.parseInt(first.marker, 10) || 1 },
       content: items,
     };
   }
-  return {
-    type: "bulletList",
-    ...(listDir ? { attrs: { dir: listDir } } : {}),
-    content: items,
-  };
+  return { type: "bulletList", content: items };
 }
 
 function textJsonForSpan(text: string, marks: RichTextMark[]): Record<string, unknown> {
