@@ -238,11 +238,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
       ),
     );
     const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
-    // GapGPT proxies streaming turns through an upstream OpenAI pool whose
-    // in-flight `account/rateLimits/updated` notifications reflect the pool's
-    // shared allowance rather than the user's GapGPT plan quota. Instead of
-    // overwriting the true limits with proxy telemetry mid-turn, debounce a
-    // snapshot refresh that reads the user's authentic limits via `account/rateLimits/read`.
+    // GapGPT proxy notifications report pooled limits, so refresh the user's plan quota after turns.
     const refreshUsageLimitsQueue = yield* Queue.sliding<void>(1);
     yield* Stream.fromQueue(refreshUsageLimitsQueue).pipe(
       Stream.debounce(Duration.seconds(3)),

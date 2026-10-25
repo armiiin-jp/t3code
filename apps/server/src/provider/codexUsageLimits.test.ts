@@ -5,7 +5,6 @@ import {
   codexRateLimitsFailureMessage,
   codexRateLimitsToLimits,
   codexRateLimitsToUpdate,
-  codexResetCreditsToContract,
   codexUsageCredentialFingerprint,
   codexUsageLimitMessage,
   mergeCodexRateLimits,
