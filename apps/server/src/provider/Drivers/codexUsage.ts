@@ -168,9 +168,7 @@ function parseCodexRecord(
   const payloadType = payloadRecord["type"];
 
   if (record["type"] === "session_meta") {
-    // Only the first meta describes this file's own session. A forked rollout
-    // repeats the ancestors' metas right after it; letting those through would
-    // reassign every subsequent record to an ancestor session.
+    // Only the first meta identifies this session; copied ancestor metas would misattribute later records.
     if (state.sawSessionMeta) return null;
     state.sawSessionMeta = true;
     const id = payloadRecord["id"] ?? payloadRecord["session_id"];
@@ -366,8 +364,7 @@ export const codexUsageFormat: TranscriptUsageFormat<CodexScanState> = {
       info: { last_token_usage: true, total_token_usage: true },
     },
   },
-  // `turn_context`, `thread_settings_applied` and `session_meta` lines hold no
-  // usage, but they carry the model, tier and session the reducer needs.
+  // Metadata lines carry model, tier and session even without usage.
   usageMarkers: ['"token_count"', '"turn_context"', '"thread_settings_applied"', '"session_meta"'],
   parseLine: (line, state) => orEmpty(parseCodexLine(line, state)),
   parseProjected: (projected, state) => orEmpty(parseCodexRecord(projected, state)),
