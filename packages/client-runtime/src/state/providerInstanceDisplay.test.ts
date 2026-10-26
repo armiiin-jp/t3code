@@ -54,6 +54,15 @@ describe("resolveProviderInstanceDisplayName", () => {
 });
 
 describe("providerInstanceInitials", () => {
+  it("treats punctuation as a word break but keeps apostrophes between letters", () => {
+    expect(providerInstanceInitials("Codex (hub)")).toBe("CH");
+    expect(providerInstanceInitials("work_codex")).toBe("WC");
+    expect(providerInstanceInitials("Theo's Codex")).toBe("TC");
+    expect(providerInstanceInitials("Codex 'hub'")).toBe("CH");
+    expect(providerInstanceInitials("‘hub’")).toBe("HU");
+    expect(providerInstanceInitials("(hub)")).toBe("HU");
+  });
+
   it("keeps an emoji whole instead of splitting its surrogate pair", () => {
     expect(providerInstanceInitials("😀 Work")).toBe("😀W");
     expect(providerInstanceInitials("😀")).toBe("😀");
