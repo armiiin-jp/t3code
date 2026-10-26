@@ -799,7 +799,6 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const checkedAt = DateTime.formatIso(yield* DateTime.now);
   const emptyModels = emptyCodexModelsFromSettings(codexSettings);
   const displayName = options?.displayName ?? CODEX_PRESENTATION.displayName;
-  const loginCommand = options?.loginCommand ?? "codex login";
   const feedbackDescription =
     options?.feedbackDescription ?? "Send this thread and Codex logs to OpenAI";
 
