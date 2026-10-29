@@ -4,35 +4,10 @@ import { resolveContextStripLabelsCompact } from "./BranchToolbar.logic";
 import {
   resolveComposerRestingControlsArrivalTiming,
   resolveComposerRestingTransitionSettings,
-  resolveComposerTimelineInset,
   resolveRestingComposerControlsLayout,
   resolveRestingComposerControlsNaturalWidth,
   shouldAnimateComposerContextStripArrival,
 } from "./composerFooterLayout";
-
-describe("resolveComposerTimelineInset", () => {
-  it("keeps timeline padding stable when the model-only strip appears on collapse", () => {
-    const expanded = resolveComposerTimelineInset({
-      currentInset: 0,
-      overlayHeight: 172,
-      isResting: false,
-    });
-    const collapsed = resolveComposerTimelineInset({
-      currentInset: expanded,
-      overlayHeight: 110,
-      isResting: true,
-      restingOnlyHeight: 32,
-    });
-    expect(collapsed).toBe(expanded);
-    expect(
-      resolveComposerTimelineInset({
-        currentInset: collapsed,
-        overlayHeight: 172,
-        isResting: false,
-      }),
-    ).toBe(expanded);
-  });
-});
 
 describe("resolveComposerRestingTransitionSettings", () => {
   it("uses a short default duration when panel animations are disabled", () => {

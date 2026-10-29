@@ -4,7 +4,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { act, render } from "../../test/render";
 
-import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
+import {
+  ComposerPromptEditorTiptap as ComposerPromptEditor,
+  type ComposerPromptEditorHandle,
+} from "./ComposerPromptEditorTiptap";
 
 async function mountEditor(value: string = "", richTextEnabled = true) {
   const screen = await render(

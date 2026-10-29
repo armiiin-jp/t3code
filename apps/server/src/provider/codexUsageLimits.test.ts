@@ -6,7 +6,6 @@ import {
   codexRateLimitsToLimits,
   codexRateLimitsToUpdate,
   codexUsageCredentialFingerprint,
-  codexUsageLimitMessage,
   mergeCodexRateLimits,
 } from "./codexUsageLimits.ts";
 
