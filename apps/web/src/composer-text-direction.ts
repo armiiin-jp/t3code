@@ -81,7 +81,7 @@ export const ComposerTextDirectionExtension = Extension.create({
           // editor root, so the root follows the line holding the caret.
           attributes: (state): Record<string, string> => {
             const dir = caretLineDirection(state);
-            return dir ? { dir } : {};
+            return { dir: dir ?? "auto" };
           },
         },
       }),
