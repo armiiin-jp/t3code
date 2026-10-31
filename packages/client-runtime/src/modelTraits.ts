@@ -57,6 +57,51 @@ export function selectableProviderOptionChoices(
   return descriptor.options;
 }
 
+export function getServiceTierSpeedDisplay(
+  provider: ProviderDriverKind,
+  descriptor: ProviderOptionDescriptor,
+  selection?: ModelSelection | null,
+  reportedSelection?: ModelSelection | null,
+): {
+  label: string;
+  speedLabel: "Fast" | "Ultrafast" | null;
+  speedIcon: "fast" | "ultrafast" | null;
+} | null {
+  if (
+    (provider !== "codex" && provider !== "gapcode") ||
+    descriptor.id !== "serviceTier" ||
+    descriptor.type !== "select"
+  ) {
+    return null;
+  }
+
+  const currentValue = getProviderOptionCurrentValue(descriptor, selection, reportedSelection);
+  const standardTier = descriptor.options.find(
+    ({ id, label }) => id === "default" || label === "Standard",
+  );
+  const fastTier = descriptor.options.find(({ label }) => label === "Fast");
+  const ultrafastTier = descriptor.options.find(({ label }) => label === "Ultrafast");
+  if (
+    !(
+      (standardTier && currentValue === standardTier.id) ||
+      (fastTier && currentValue === fastTier.id) ||
+      (ultrafastTier && currentValue === ultrafastTier.id) ||
+      (currentValue === "default" && (fastTier || ultrafastTier))
+    )
+  ) {
+    return null;
+  }
+
+  const isFast = fastTier?.id === currentValue;
+  const isUltrafast = ultrafastTier?.id === currentValue;
+  const speedLabel = isUltrafast ? "Ultrafast" : isFast ? "Fast" : null;
+  return {
+    label: descriptor.options.find(({ id }) => id === currentValue)?.label ?? "Standard",
+    speedLabel,
+    speedIcon: isUltrafast ? "ultrafast" : isFast ? "fast" : null,
+  };
+}
+
 export function getPromptControlledTraits(
   descriptors: ReadonlyArray<ProviderOptionDescriptor>,
   prompt: string,
@@ -127,29 +172,16 @@ export function buildTraitsTriggerDisplay(input: {
       fastModeFallbackLabel = speedLabel ?? "Normal";
       continue;
     }
-    if (
-      input.provider === "codex" &&
-      descriptor.id === "serviceTier" &&
-      descriptor.type === "select"
-    ) {
-      const currentValue = getProviderOptionCurrentValue(descriptor);
-      const fastTier = descriptor.options.find(({ label }) => label === "Fast");
-      const ultrafastTier = descriptor.options.find(({ label }) => label === "Ultrafast");
-      if (
-        ((fastTier || ultrafastTier) && currentValue === "default") ||
-        (fastTier && currentValue === fastTier.id) ||
-        (ultrafastTier && currentValue === ultrafastTier.id)
-      ) {
-        speedLabel =
-          ultrafastTier && currentValue === ultrafastTier.id
-            ? "Ultrafast"
-            : fastTier && currentValue === fastTier.id
-              ? "Fast"
-              : null;
-        fastModeFallbackLabel =
-          descriptor.options.find(({ id }) => id === currentValue)?.label ?? "Normal";
-        continue;
-      }
+    const serviceTierDisplay = getServiceTierSpeedDisplay(
+      input.provider,
+      descriptor,
+      input.modelSelection,
+      input.reportedModelSelection,
+    );
+    if (serviceTierDisplay) {
+      speedLabel = serviceTierDisplay.speedLabel;
+      fastModeFallbackLabel = serviceTierDisplay.label;
+      continue;
     }
     const label =
       input.ultrathinkPromptControlled && descriptor.id === input.primarySelectDescriptorId

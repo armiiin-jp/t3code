@@ -90,7 +90,7 @@ export function SubagentTooltipContent(props: {
             });
           }
           if (
-            provider.driver === "codex" &&
+            (provider.driver === "codex" || provider.driver === "gapcode") &&
             descriptor.id === "serviceTier" &&
             descriptor.type === "select" &&
             typeof saved?.value === "string" &&
