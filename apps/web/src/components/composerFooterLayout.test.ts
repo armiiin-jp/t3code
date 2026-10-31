@@ -7,7 +7,29 @@ import {
   resolveRestingComposerControlsLayout,
   resolveRestingComposerControlsNaturalWidth,
   shouldAnimateComposerContextStripArrival,
+  shouldUseRestingComposerLayout,
 } from "./composerFooterLayout";
+
+describe("shouldUseRestingComposerLayout", () => {
+  const eligible = {
+    isExistingThread: true,
+    isMobileViewport: false,
+    isScrollCollapsed: true,
+    hasExpandedChrome: false,
+    hasMultilinePrompt: false,
+    timelineOverflows: true,
+  };
+
+  it("uses the resting layout after desktop timeline scrolling", () => {
+    expect(shouldUseRestingComposerLayout(eligible)).toBe(true);
+  });
+
+  it("keeps the composer expanded when its context is ineligible", () => {
+    expect(shouldUseRestingComposerLayout({ ...eligible, isMobileViewport: true })).toBe(false);
+    expect(shouldUseRestingComposerLayout({ ...eligible, hasExpandedChrome: true })).toBe(false);
+    expect(shouldUseRestingComposerLayout({ ...eligible, timelineOverflows: false })).toBe(false);
+  });
+});
 
 describe("resolveComposerRestingTransitionSettings", () => {
   it("uses a short default duration when panel animations are disabled", () => {

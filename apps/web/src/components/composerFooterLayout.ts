@@ -63,6 +63,24 @@ export function resolveComposerRestingTransitionSettings(input: {
   };
 }
 
+export function shouldUseRestingComposerLayout(input: {
+  isExistingThread: boolean;
+  isMobileViewport: boolean;
+  isScrollCollapsed: boolean;
+  hasExpandedChrome: boolean;
+  hasMultilinePrompt: boolean;
+  timelineOverflows: boolean;
+}): boolean {
+  return (
+    input.isExistingThread &&
+    !input.isMobileViewport &&
+    input.timelineOverflows &&
+    input.isScrollCollapsed &&
+    !input.hasMultilinePrompt &&
+    !input.hasExpandedChrome
+  );
+}
+
 export function shouldAnimateComposerRestingTransition(input: {
   hasCompletedInitialLayout: boolean;
   stateChanged: boolean;
