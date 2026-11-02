@@ -18,7 +18,7 @@ function renderModelRow(subProvider: string) {
         providerDisplayName="Gapcode"
         isFavorite={false}
         isSelected={false}
-        showProvider
+        showInstanceBadge={false}
         onToggleFavorite={() => {}}
       />
     </Combobox>,
@@ -32,9 +32,11 @@ describe("ModelListRow", () => {
     expect(markup.match(/gapcode/giu)).toHaveLength(1);
   });
 
-  it("keeps a distinct sub-provider in the secondary label", () => {
+  it("names the provider accessibly and keeps a distinct sub-provider as the secondary label", () => {
     const markup = renderModelRow("OpenRouter");
 
-    expect(markup).toContain("Gapcode · OpenRouter");
+    expect(markup).toContain(", Gapcode");
+    expect(markup).toContain(">OpenRouter</span>");
+    expect(markup).not.toContain("Gapcode · OpenRouter");
   });
 });

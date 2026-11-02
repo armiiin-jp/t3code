@@ -39,6 +39,9 @@ export const ModelListRow = memo(function ModelListRow(props: {
     name: props.name,
     subProvider: props.subProvider,
   };
+  const subProvider = props.subProvider?.trim().replace(/\s+/gu, " ");
+  const providerLabel = props.providerDisplayName.trim().replace(/\s+/gu, " ").toLowerCase();
+  const showSubProvider = Boolean(subProvider) && subProvider?.toLowerCase() !== providerLabel;
 
   const row = (
     <ComboboxItem
@@ -79,9 +82,9 @@ export const ModelListRow = memo(function ModelListRow(props: {
           {/* The logo is decorative, so name the provider for screen readers. */}
           <span className="sr-only">, {props.providerDisplayName}</span>
         </div>
-        {props.subProvider ? (
+        {showSubProvider && subProvider ? (
           <span className="min-w-0 shrink truncate text-xs text-muted-foreground/70">
-            {props.subProvider}
+            {subProvider}
           </span>
         ) : null}
         {props.showNewBadge ? (

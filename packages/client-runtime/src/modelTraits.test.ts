@@ -33,7 +33,7 @@ describe("buildTraitsTriggerDisplay service tier", () => {
         primarySelectDescriptorId: "reasoningEffort",
         ultrathinkPromptControlled: false,
       });
-      expect(standard).toEqual({ label: "High", speedLabel: null, otherLabels: [] });
+      expect(standard).toEqual({ label: "High", speedLabel: null });
 
       const fast = buildTraitsTriggerDisplay({
         provider,
@@ -41,7 +41,7 @@ describe("buildTraitsTriggerDisplay service tier", () => {
         primarySelectDescriptorId: "reasoningEffort",
         ultrathinkPromptControlled: false,
       });
-      expect(fast).toEqual({ label: "High Fast", speedLabel: "Fast", otherLabels: [] });
+      expect(fast).toEqual({ label: "High Fast", speedLabel: "Fast" });
     },
   );
 });
