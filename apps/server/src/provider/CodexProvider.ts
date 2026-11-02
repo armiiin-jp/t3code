@@ -172,14 +172,17 @@ export function gapCodePlanLabel(planType: string | null | undefined): string {
   return tier ? `GapGPT subscription (${tier})` : "GapGPT subscription";
 }
 
-function codexAccountAuthLabel(
+export function codexAccountAuthLabel(
   account: CodexSchema.V2GetAccountResponse["account"],
   rawPlanType?: string | null,
+  usagePlanType?: string | null,
   options?: CodexProviderOptions,
 ) {
   if (!account) return undefined;
+  const resolvedPlanType =
+    usagePlanType && usagePlanType !== "unknown" ? usagePlanType : rawPlanType;
   if (options?.resolvePlanLabel) {
-    return options.resolvePlanLabel({ planType: rawPlanType, account });
+    return options.resolvePlanLabel({ planType: resolvedPlanType, account });
   }
   if (options?.authLabel === "GapGPT") {
     const isSubscription =
@@ -188,16 +191,18 @@ function codexAccountAuthLabel(
         ("oauthOrigin" in account
           ? Boolean((account as { oauthOrigin?: boolean }).oauthOrigin)
           : true)) ||
-      Boolean(rawPlanType);
+      Boolean(resolvedPlanType);
     if (isSubscription) {
-      return gapCodePlanLabel(rawPlanType);
+      return gapCodePlanLabel(resolvedPlanType);
     }
     return "GapCode API Key";
   }
   if (account.type === "apiKey") return "OpenAI API Key";
   if (account.type === "amazonBedrock") return "Amazon Bedrock";
   if (account.type !== "chatgpt") return undefined;
-  return codexPlanLabel(rawPlanType ?? account.planType);
+  // account/read takes the plan from the cached login token; the usage read asks the backend.
+  const usageLabel = usagePlanType === "unknown" ? undefined : codexPlanLabel(usagePlanType);
+  return usageLabel ?? codexPlanLabel(rawPlanType ?? account.planType);
 }
 
 export function codexPlanLabel(planType: string | null | undefined): string | undefined {
@@ -790,7 +795,9 @@ function accountProbeStatus(
     (rateLimits && "rateLimitsByLimitId" in rateLimits && rateLimits.rateLimitsByLimitId
       ? Object.values(rateLimits.rateLimitsByLimitId)[0]?.planType
       : undefined);
-  const authLabel = codexAccountAuthLabel(account.account, rawPlanType, options);
+  const usagePlanType =
+    rateLimits && "snapshot" in rateLimits ? rateLimits.snapshot.planType : undefined;
+  const authLabel = codexAccountAuthLabel(account.account, rawPlanType, usagePlanType, options);
   const authEmail = codexAccountEmail(account.account);
   const workspaceId =
     rateLimits && "accountId" in rateLimits ? rateLimits.accountId?.trim() : undefined;

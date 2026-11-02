@@ -2,6 +2,7 @@ import { assert, it } from "@effect/vitest";
 
 import {
   applyPreferredCodexDefaultModel,
+  codexAccountAuthLabel,
   gapCodePlanLabel,
   gapCodePlanTier,
   mapCodexModelCapabilities,
@@ -173,4 +174,16 @@ it("formats GapCode plan tiers and labels to match GapCode /status", () => {
   assert.strictEqual(gapCodePlanLabel("pro"), "GapGPT subscription (Pro (More))");
   assert.strictEqual(gapCodePlanLabel("promax"), "GapGPT subscription (Pro (Max))");
   assert.strictEqual(gapCodePlanLabel(undefined), "GapGPT subscription");
+});
+
+it("uses the current usage plan for Codex and GapCode account labels", () => {
+  const account = { type: "chatgpt", planType: "plus" } as Parameters<
+    typeof codexAccountAuthLabel
+  >[0];
+
+  assert.strictEqual(codexAccountAuthLabel(account, "plus", "pro"), "ChatGPT Pro 200 Subscription");
+  assert.strictEqual(
+    codexAccountAuthLabel(account, "plus", "pro", { authLabel: "GapGPT" }),
+    "GapGPT subscription (Pro (More))",
+  );
 });
