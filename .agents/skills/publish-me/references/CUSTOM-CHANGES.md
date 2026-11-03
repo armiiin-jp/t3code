@@ -4,8 +4,8 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `61c3794c32`, fork `custom/main` at
-`44796f790e` (2026-11-03).
+Baseline checked: upstream `main` at `e2bb9e63e1`, fork `main` at
+`ce83530ddc`, and `custom/main` at `b7b335a51f` (2026-11-03).
 
 ## Change inventory
 
@@ -16,7 +16,7 @@ Baseline checked: upstream `main` at `61c3794c32`, fork `custom/main` at
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
 | Custom-theme environment artwork   | Supports environment artwork with user-created themes and matching composer colors.             |
-| Publish-me project skill           | Documents the fork sync, preservation, build, and GitHub prerelease workflow for future agents. |
+| Publish-me project skill           | Documents fork sync, preservation, and Windows releases with a GitHub update feed.              |
 | Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
 
 ## Detailed changes
@@ -100,8 +100,14 @@ Baseline checked: upstream `main` at `61c3794c32`, fork `custom/main` at
   project metadata discoverable by supported harnesses, with plain UTF-8
   frontmatter that the skills scanner can parse. The skill directs
   agents to read this inventory, reconcile every listed change after syncing,
-  build and validate the Windows installer, and publish a commit-specific
-  GitHub prerelease without replacing an unrelated tag.
+  build a Windows installer with the explicit GitHub update repository, and
+  publish a verified stable GitHub update feed using strictly increasing
+  three-part SemVer versions.
+- The first feed-enabled Windows release is stable `0.1.7`, tag
+  `custom-main-v0.1.7`, at commit `b7b335a51f6f7ad33f9fd531f3ab65d3bcaa006e`.
+  Builds through `0.1.6` need one manual install of `0.1.7`; later stable
+  releases are discovered by background checks, while users still start the
+  download and restart in the app.
 - Keep the root `AGENTS.md` link to this inventory so future syncs and releases
   account for the fork-specific changes.
 
