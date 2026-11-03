@@ -36,14 +36,14 @@ import {
 type SelectDescriptor = Extract<ProviderOptionDescriptor, { type: "select" }>;
 type BooleanDescriptor = Extract<ProviderOptionDescriptor, { type: "boolean" }>;
 
-/** Codex service tiers and Claude's Fast mode share the footer's speed control. */
+/** Codex and GapCode service tiers, plus Claude's Fast mode, share the footer's speed control. */
 function splitSpeed(
   provider: TraitsSelectionInput["provider"],
   selects: ReadonlyArray<SelectDescriptor>,
   toggles: ReadonlyArray<BooleanDescriptor>,
 ) {
   const speedSelect =
-    provider === "codex"
+    provider === "codex" || provider === "gapcode"
       ? (selects.find((descriptor) => descriptor.id === "serviceTier") ?? null)
       : null;
   const fastToggle = toggles.find((descriptor) => descriptor.id === "fastMode") ?? null;
