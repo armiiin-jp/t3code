@@ -1,0 +1,4 @@
+interface:
+  display_name: "Publish me"
+  short_description: "Sync custom/main and publish a Windows release"
+  default_prompt: "Use $publish-me to sync upstream main into the fork and custom/main, preserve every documented custom change, build the Windows x64 installer, and publish or update the GitHub prerelease."

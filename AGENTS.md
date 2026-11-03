@@ -1,5 +1,8 @@
 # T3 Code
 
+Before syncing upstream or releasing `custom/main`, read
+[CUSTOM-CHANGES.md](.agents/skills/publish-me/references/CUSTOM-CHANGES.md) and preserve the fork-specific changes listed there.
+
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity, Kiro) and serves web, desktop, and mobile clients.
 
 You can think of T3 Code as an open source "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
