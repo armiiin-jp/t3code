@@ -4,8 +4,9 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `e2bb9e63e1`, fork `main` at
-`ce83530ddc`, and `custom/main` at `b7b335a51f` (2026-11-03).
+Baseline checked: upstream `main` at `e68e19d605`, fork `main` at
+`63e743d337`, and `custom/main` at `6a14fdac28` before this sync
+(2026-11-04).
 
 ## Change inventory
 
@@ -15,8 +16,8 @@ Baseline checked: upstream `main` at `e2bb9e63e1`, fork `main` at
 | GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer. |
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
-| Custom-theme environment artwork   | Supports environment artwork with user-created themes and matching composer colors.             |
-| Publish-me project skill           | Documents fork sync, preservation, and Windows releases with a GitHub update feed.              |
+| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work. |
+| Publish-me project skill           | Routes Stable and Nightly publishing to the matching Windows x64 GitHub update feed.            |
 | Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
 
 ## Detailed changes
@@ -66,12 +67,16 @@ Baseline checked: upstream `main` at `e2bb9e63e1`, fork `main` at
 - Keep mixed-script Markdown list markers aligned and retain the bidi coverage
   tests.
 
-## Environment artwork on custom themes
+## Environment artwork on custom themes (pending)
 
-- Allow the environment-identification artwork modes on user-created themes
-  and theme previews. Derive the artwork colors from the custom theme accent.
-- Use matching artwork colors on the composer send button. Preserve the
-  existing built-in theme artwork and identification modes.
+- The implementation is on `feat/custom-theme-environment-identification` and
+  is not included in `custom/main`. It remains pending until that branch is
+  intentionally merged.
+- The pending change allows environment-identification artwork modes on
+  user-created themes and previews, deriving the artwork colors from the custom
+  theme accent and using matching colors on the composer send button.
+- Preserve the existing built-in theme artwork and identification modes when
+  merging the pending change.
 - A startup T3 icon accent glow was added earlier, then removed by commit
   `44796f790e`. It is **not** active on the current branch; do not re-add it
   unless requested.
@@ -108,6 +113,10 @@ Baseline checked: upstream `main` at `e2bb9e63e1`, fork `main` at
   Builds through `0.1.6` need one manual install of `0.1.7`; later stable
   releases are discovered by background checks, while users still start the
   download and restart in the app.
+- When the user explicitly asks to publish on Nightly, publish a Windows x64
+  prerelease from `custom/main` with a `nightly.yml` manifest and blockmap in
+  `armiiin-jp/t3code`. Keep it separate from Stable's `latest.yml` feed; this
+  is an on-demand release mode, not a scheduled build.
 - Keep the root `AGENTS.md` link to this inventory so future syncs and releases
   account for the fork-specific changes.
 
