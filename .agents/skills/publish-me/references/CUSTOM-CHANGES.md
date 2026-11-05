@@ -4,9 +4,9 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `e68e19d605`, fork `main` at
-`63e743d337`, and `custom/main` at `6a14fdac28` before this sync
-(2026-11-04).
+Baseline checked: upstream `main` at `67eebaca23`, fork `main` at
+`22e42eaed2`, and `custom/main` at `7f27708398` before this sync
+(2026-11-05).
 
 ## Change inventory
 
@@ -17,7 +17,7 @@ Baseline checked: upstream `main` at `e68e19d605`, fork `main` at
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
 | Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work. |
-| Publish-me project skill           | Routes Stable and Nightly publishing to the matching Windows x64 GitHub update feed.            |
+| Publish-me project skill           | Uses channel-specific Windows x64 release tags and manifests for Stable and Nightly updates.    |
 | Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
 
 ## Detailed changes
@@ -113,10 +113,14 @@ Baseline checked: upstream `main` at `e68e19d605`, fork `main` at
   Builds through `0.1.6` need one manual install of `0.1.7`; later stable
   releases are discovered by background checks, while users still start the
   download and restart in the app.
+- Keep stable tags in the `custom-main-v<MAJOR.MINOR.PATCH>` form. The stable
+  updater follows GitHub's latest release and reads `latest.yml`.
 - When the user explicitly asks to publish on Nightly, publish a Windows x64
-  prerelease from `custom/main` with a `nightly.yml` manifest and blockmap in
-  `armiiin-jp/t3code`. Keep it separate from Stable's `latest.yml` feed; this
-  is an on-demand release mode, not a scheduled build.
+  prerelease from `custom/main` with a SemVer `v<version>` tag,
+  `nightly.yml` manifest, and blockmap in `armiiin-jp/t3code`. Nightly tags
+  must be SemVer because electron-updater filters release tags before reading
+  the manifest. Keep it separate from Stable's `latest.yml` feed; this is an
+  on-demand release mode, not a scheduled build.
 - Keep the root `AGENTS.md` link to this inventory so future syncs and releases
   account for the fork-specific changes.
 
