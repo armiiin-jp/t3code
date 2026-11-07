@@ -165,10 +165,12 @@ export function buildTraitsTriggerDisplay(input: {
   label: string;
   /** "Fast" or "Ultrafast" when a speed option is on. */
   speedLabel: string | null;
+  ultracode: boolean;
 } {
   let fastModeFallbackLabel: string | null = null;
   let speedLabel: string | null = null;
   let reasoningLabelIndex = -1;
+  let ultracodeLabelIndex = -1;
   const labels: Array<string> = [];
   for (const descriptor of input.descriptors) {
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {
@@ -186,6 +188,37 @@ export function buildTraitsTriggerDisplay(input: {
       speedLabel = serviceTierDisplay.speedLabel;
       fastModeFallbackLabel = serviceTierDisplay.label;
       continue;
+    }
+    if (descriptor.id === "ultracode" && descriptor.type === "boolean") {
+      if (descriptor.currentValue === true) {
+        ultracodeLabelIndex = labels.length;
+        labels.push(descriptor.label);
+      }
+      continue;
+    }
+    if (
+      input.provider === "codex" &&
+      descriptor.id === "serviceTier" &&
+      descriptor.type === "select"
+    ) {
+      const currentValue = getProviderOptionCurrentValue(descriptor);
+      const fastTier = descriptor.options.find(({ label }) => label === "Fast");
+      const ultrafastTier = descriptor.options.find(({ label }) => label === "Ultrafast");
+      if (
+        ((fastTier || ultrafastTier) && currentValue === "default") ||
+        (fastTier && currentValue === fastTier.id) ||
+        (ultrafastTier && currentValue === ultrafastTier.id)
+      ) {
+        speedLabel =
+          ultrafastTier && currentValue === ultrafastTier.id
+            ? "Ultrafast"
+            : fastTier && currentValue === fastTier.id
+              ? "Fast"
+              : null;
+        fastModeFallbackLabel =
+          descriptor.options.find(({ id }) => id === currentValue)?.label ?? "Normal";
+        continue;
+      }
     }
     const label =
       input.ultrathinkPromptControlled && descriptor.id === input.primarySelectDescriptorId
@@ -205,8 +238,9 @@ export function buildTraitsTriggerDisplay(input: {
     }
   }
 
+  const ultracode = ultracodeLabelIndex >= 0;
   if (labels.length === 0 && fastModeFallbackLabel !== null) {
-    return { label: fastModeFallbackLabel, speedLabel };
+    return { label: fastModeFallbackLabel, speedLabel, ultracode };
   }
   if (speedLabel) {
     if (reasoningLabelIndex >= 0) {
@@ -215,5 +249,5 @@ export function buildTraitsTriggerDisplay(input: {
       labels.push(speedLabel);
     }
   }
-  return { label: labels.join(" · "), speedLabel };
+  return { label: labels.join(" · "), speedLabel, ultracode };
 }
