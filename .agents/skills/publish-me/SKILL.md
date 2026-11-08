@@ -12,6 +12,11 @@ Use this workflow when asked to publish the fork's latest changes. If the user s
 - Tag stable releases as `custom-main-v<MAJOR.MINOR.PATCH>` (for example, `custom-main-v0.1.8`). Keep the tag's version identical to the installer and `latest.yml` version.
 - This custom-prefixed tag is intentional: Stable updates resolve GitHub's latest release and read `latest.yml`; Nightly selection scans release tags and requires SemVer, so Nightly tags use a different format.
 
+## Windows-only packaging
+
+- This fork publishes Windows x64 desktop installers. Do not build or bundle the Linux CLI or a WSL runtime; omit `--wsl-runtime` from `build-desktop-artifact.ts`.
+- Stable and Nightly releases contain only the Windows installer, its blockmap, and the matching update manifest (`latest.yml` or `nightly.yml`).
+
 ## Nightly mode
 
 - Publish the current `custom/main` commit as a Windows x64 prerelease in `armiiin-jp/t3code`. This is a release-time action, not a request to schedule a recurring workflow.

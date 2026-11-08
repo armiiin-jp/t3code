@@ -4,7 +4,7 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `33f85846be`, fork `main` at `c854e15e87`, and `custom/main` at `9b2dda4d66` before this sync (2026-11-07).
+Baseline checked: upstream `main` at `09a54f01bc`, fork `main` at `5e74a04621`, and `custom/main` at `870dddcc7e` before this sync (2026-11-08).
 
 ## Change inventory
 
@@ -15,7 +15,7 @@ Baseline checked: upstream `main` at `33f85846be`, fork `main` at `c854e15e87`, 
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
 | Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work. |
-| Publish-me project skill           | Uses channel-specific Windows x64 release tags and manifests for Stable and Nightly updates.    |
+| Publish-me project skill           | Publishes Windows x64 installers and channel-specific Stable and Nightly update feeds.          |
 | Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
 
 ## Detailed changes
@@ -113,6 +113,8 @@ Baseline checked: upstream `main` at `33f85846be`, fork `main` at `c854e15e87`, 
   download and restart in the app.
 - Keep stable tags in the `custom-main-v<MAJOR.MINOR.PATCH>` form. The stable
   updater follows GitHub's latest release and reads `latest.yml`.
+- Package Windows x64 only. Do not build or bundle the Linux CLI or WSL
+  runtime, and publish only the installer, its blockmap, and matching manifest.
 - When the user explicitly asks to publish on Nightly, publish a Windows x64
   prerelease from `custom/main` with a SemVer `v<version>` tag,
   `nightly.yml` manifest, and blockmap in `armiiin-jp/t3code`. Nightly tags
