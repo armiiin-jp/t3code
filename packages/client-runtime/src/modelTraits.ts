@@ -1,8 +1,4 @@
-import type {
-  ModelSelection,
-  ProviderDriverKind,
-  ProviderOptionDescriptor,
-} from "@t3tools/contracts";
+import type { ModelSelection, ProviderOptionDescriptor } from "@t3tools/contracts";
 import {
   buildProviderOptionSelectionsFromDescriptors,
   getProviderOptionCurrentLabel,
@@ -72,7 +68,6 @@ export function selectableProviderOptionChoices(
 }
 
 export function getServiceTierSpeedDisplay(
-  provider: ProviderDriverKind,
   descriptor: ProviderOptionDescriptor,
   selection?: ModelSelection | null,
   reportedSelection?: ModelSelection | null,
@@ -81,11 +76,7 @@ export function getServiceTierSpeedDisplay(
   speedLabel: "Fast" | "Ultrafast" | null;
   speedIcon: "fast" | "ultrafast" | null;
 } | null {
-  if (
-    (provider !== "codex" && provider !== "gapcode") ||
-    descriptor.id !== "serviceTier" ||
-    descriptor.type !== "select"
-  ) {
+  if (descriptor.id !== "serviceTier" || descriptor.type !== "select") {
     return null;
   }
 
@@ -155,7 +146,6 @@ export function getTraitSelectChange(
 }
 
 export function buildTraitsTriggerDisplay(input: {
-  provider: ProviderDriverKind;
   descriptors: ReadonlyArray<ProviderOptionDescriptor>;
   primarySelectDescriptorId: string | null;
   ultrathinkPromptControlled: boolean;
@@ -179,7 +169,6 @@ export function buildTraitsTriggerDisplay(input: {
       continue;
     }
     const serviceTierDisplay = getServiceTierSpeedDisplay(
-      input.provider,
       descriptor,
       input.modelSelection,
       input.reportedModelSelection,
@@ -196,11 +185,7 @@ export function buildTraitsTriggerDisplay(input: {
       }
       continue;
     }
-    if (
-      input.provider === "codex" &&
-      descriptor.id === "serviceTier" &&
-      descriptor.type === "select"
-    ) {
+    if (descriptor.id === "serviceTier" && descriptor.type === "select") {
       const currentValue = getProviderOptionCurrentValue(descriptor);
       const fastTier = descriptor.options.find(({ label }) => label === "Fast");
       const ultrafastTier = descriptor.options.find(({ label }) => label === "Ultrafast");
