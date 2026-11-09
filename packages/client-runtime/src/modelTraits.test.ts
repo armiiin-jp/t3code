@@ -24,26 +24,21 @@ const descriptors = (serviceTier: string): ReadonlyArray<ProviderOptionDescripto
 ];
 
 describe("buildTraitsTriggerDisplay", () => {
-  it.each([ProviderDriverKind.make("codex"), ProviderDriverKind.make("gapcode")])(
-    "%s hides Standard and marks Fast as speed",
-    (provider) => {
-      const standard = buildTraitsTriggerDisplay({
-        provider,
-        descriptors: descriptors("standard"),
-        primarySelectDescriptorId: "reasoningEffort",
-        ultrathinkPromptControlled: false,
-      });
-      expect(standard).toEqual({ label: "High", speedLabel: null, ultracode: false });
+  it("hides Standard and marks Fast as speed", () => {
+    const standard = buildTraitsTriggerDisplay({
+      descriptors: descriptors("standard"),
+      primarySelectDescriptorId: "reasoningEffort",
+      ultrathinkPromptControlled: false,
+    });
+    expect(standard).toEqual({ label: "High", speedLabel: null, ultracode: false });
 
-      const fast = buildTraitsTriggerDisplay({
-        provider,
-        descriptors: descriptors("fast"),
-        primarySelectDescriptorId: "reasoningEffort",
-        ultrathinkPromptControlled: false,
-      });
-      expect(fast).toEqual({ label: "High Fast", speedLabel: "Fast", ultracode: false });
-    },
-  );
+    const fast = buildTraitsTriggerDisplay({
+      descriptors: descriptors("fast"),
+      primarySelectDescriptorId: "reasoningEffort",
+      ultrathinkPromptControlled: false,
+    });
+    expect(fast).toEqual({ label: "High Fast", speedLabel: "Fast", ultracode: false });
+  });
   it.each([
     { currentValue: undefined, defaultValue: undefined, value: null, label: "Thinking" },
     { currentValue: undefined, defaultValue: "high", value: "high", label: "High" },
