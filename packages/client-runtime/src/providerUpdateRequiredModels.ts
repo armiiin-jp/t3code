@@ -4,6 +4,7 @@ import { compareSemverVersions } from "@t3tools/shared/semver";
 const RUNTIME_NAMES: Partial<Record<string, string>> = {
   claudeAgent: "Claude Code",
   codex: "the Codex CLI",
+  gapcode: "the GapCode CLI",
 };
 
 function formatModelList(names: ReadonlyArray<string>): string {

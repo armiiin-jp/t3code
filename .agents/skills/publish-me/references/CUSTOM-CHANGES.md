@@ -43,6 +43,14 @@ Baseline checked: upstream `main` at `c4ce7b0fd7`, fork `main` at `d56527f3f7`, 
   uses the lightning icon. Use the shared Codex service-tier display helper.
 - Put GapCode's service-tier picker in the composer footer beside the
   permissions control, matching Codex, instead of grouping it under Reasoning.
+- Match Codex update discovery and one-click maintenance logic: check latest
+  GapCode CLI versions from `https://gapgpt.app/api/v1/cli/latest-version`,
+  expose native update via `gapcode update`, and generate version advisories so
+  that update alert boxes, sidebar update pills, and tooltips show for GapCode
+  identically to Codex.
+- Support GapCode model update required notices in the model picker, mapping
+  runtime name `gapcode` to "the GapCode CLI" and adapting catalog minVersion
+  checks.
 
 ## Composer motion and controls
 

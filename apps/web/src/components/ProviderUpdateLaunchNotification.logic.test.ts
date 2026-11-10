@@ -354,4 +354,59 @@ describe("getProviderUpdateRunToastView", () => {
       description: "Mac Studio · Claude: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
     });
   });
+
+  it("handles GapCode provider update candidate and sidebar pill view", () => {
+    const gapCodeCandidate = provider({
+      driver: driver("gapcode"),
+      version: "0.164.1",
+      latestVersion: "0.164.3",
+      canUpdate: true,
+      updateCommand: "gapcode update",
+      advisoryStatus: "behind_latest",
+    });
+
+    expect(isProviderUpdateCandidate(gapCodeCandidate)).toBe(true);
+    expect(canOneClickUpdateProviderCandidate(gapCodeCandidate, [gapCodeCandidate])).toBe(true);
+
+    const updatingView = getProviderUpdateSidebarPillView([
+      {
+        ...gapCodeCandidate,
+        updateState: {
+          status: "running",
+          startedAt: checkedAt,
+          finishedAt: null,
+          message: "Updating",
+          output: null,
+        },
+      },
+    ]);
+    expect(updatingView).toMatchObject({
+      tone: "loading",
+      title: "Updating GapCode",
+      description: "GapCode update in progress.",
+    });
+
+    const succeededView = getProviderUpdateSidebarPillView(
+      [
+        provider({
+          driver: driver("gapcode"),
+          version: "0.164.3",
+          latestVersion: "0.164.3",
+          advisoryStatus: "current",
+          updateState: {
+            status: "succeeded",
+            startedAt: checkedAt,
+            finishedAt: laterCheckedAt,
+            message: "Provider updated.",
+            output: null,
+          },
+        }),
+      ],
+      { visibleAfterIso: sessionStartedAt },
+    );
+    expect(succeededView).toMatchObject({
+      tone: "success",
+      title: "GapCode updated: v0.164.3",
+    });
+  });
 });

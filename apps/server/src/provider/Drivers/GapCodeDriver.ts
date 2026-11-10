@@ -7,16 +7,18 @@ import { CodexSettings, GapCodeSettings, ProviderDriverKind } from "@t3tools/con
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { HttpClient } from "effect/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 
 import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
 import * as ServerConfig from "../../config.ts";
 import { ProviderDriverError } from "../Errors.ts";
+import { applyCodexModelCatalog } from "../codexModelCatalog.ts";
 import {
   createCodexAdapterV2,
   type CodexAdapterV2DriverEnv,
@@ -67,31 +69,68 @@ function isGapCodeNativeCommandPath(commandPath: string): boolean {
   );
 }
 
-const gapCodeMaintenanceResolver = {
-  resolve: (context: ProviderMaintenanceResolutionContext | null) => {
-    const manual = makeManualOnlyProviderMaintenanceCapabilities({
-      provider: DRIVER_KIND,
-      packageName: null,
-    });
-    if (
-      !context ||
-      ![context.resolvedCommandPath, context.realCommandPath].some(isGapCodeNativeCommandPath)
-    ) {
-      return Effect.succeed(manual);
-    }
-    return Effect.succeed(
-      makeProviderMaintenanceCapabilities({
+const GAPCODE_LATEST_VERSION_URL = "https://gapgpt.app/api/v1/cli/latest-version";
+
+const GapCodeLatestVersionResponse = Schema.Struct({
+  version: Schema.optional(Schema.String),
+  tag_name: Schema.optional(Schema.String),
+});
+
+function parseGapCodeVersion(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().replace(/^(?:rust-)?v/, "");
+  return /^\d+\.\d+\.\d+/.test(cleaned) ? cleaned : null;
+}
+
+function makeGapCodeLatestVersionLookup(client: HttpClient.HttpClient) {
+  const request = HttpClientRequest.get(GAPCODE_LATEST_VERSION_URL).pipe(
+    HttpClientRequest.setHeader("accept", "application/json"),
+  );
+  return client.execute(request).pipe(
+    Effect.flatMap(HttpClientResponse.filterStatusOk),
+    Effect.flatMap(HttpClientResponse.schemaBodyJson(GapCodeLatestVersionResponse)),
+    Effect.timeoutOption(Duration.millis(4_000)),
+    Effect.map((payload) =>
+      Option.isSome(payload)
+        ? parseGapCodeVersion(payload.value.version ?? payload.value.tag_name)
+        : null,
+    ),
+    Effect.orElseSucceed(() => null),
+  );
+}
+
+function makeGapCodeMaintenanceResolver(client: HttpClient.HttpClient) {
+  const lookupLatestVersion = makeGapCodeLatestVersionLookup(client);
+  return {
+    resolve: (context: ProviderMaintenanceResolutionContext | null) => {
+      const manual = makeManualOnlyProviderMaintenanceCapabilities({
         provider: DRIVER_KIND,
         packageName: null,
-        updateExecutable: context.resolvedCommandPath,
-        updateArgs: ["update"],
-        updateLockKey: "gapcode-native",
-        platform: context.platform,
-        env: context.env,
-      }),
-    );
-  },
-};
+        lookupLatestVersion,
+      });
+      if (
+        !context ||
+        ![context.resolvedCommandPath, context.realCommandPath].some(isGapCodeNativeCommandPath)
+      ) {
+        return Effect.succeed(manual);
+      }
+      return Effect.succeed({
+        ...makeProviderMaintenanceCapabilities({
+          provider: DRIVER_KIND,
+          packageName: null,
+          updateExecutable: context.resolvedCommandPath,
+          updateArgs: ["update"],
+          updateLockKey: "gapcode-native",
+          platform: context.platform,
+          env: context.env,
+          latestVersion: null,
+          lookupLatestVersion,
+        }),
+        latestVersionCacheKey: GAPCODE_LATEST_VERSION_URL,
+      });
+    },
+  };
+}
 
 const PROVIDER_OPTIONS = {
   displayName: "GapCode",
@@ -171,6 +210,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
       ...toCodexSettings({ ...config, enabled }),
       binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
     } satisfies CodexSettings;
+    const gapCodeMaintenanceResolver = makeGapCodeMaintenanceResolver(httpClient);
     const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
       resolveProviderMaintenanceCapabilitiesEffect(gapCodeMaintenanceResolver, {
         binaryPath: effectiveConfig.binaryPath,
@@ -192,7 +232,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
             PROVIDER_OPTIONS,
           ),
           currentCatalog,
-          (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
+          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
           { concurrent: true },
         ),
       ),
@@ -210,7 +250,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
         Effect.zipWith(
           makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS),
           currentCatalog,
-          (draft, catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog)),
+          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
         ),
       checkProvider,
       enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>

@@ -11,6 +11,7 @@ const CODEX_MATCHING: ModelCatalog.CatalogMatching = { family: codexModelFamily 
 
 const CodexModelAdapter = Schema.Struct({
   codex: Schema.optional(Schema.Struct({ minVersion: Schema.optional(TrimmedNonEmptyString) })),
+  gapcode: Schema.optional(Schema.Struct({ minVersion: Schema.optional(TrimmedNonEmptyString) })),
 });
 const decodeCodexModelAdapter = Schema.decodeUnknownOption(CodexModelAdapter);
 
@@ -24,8 +25,8 @@ function codexUpdateRequiredModels(
   const discovered = new Set(draft.models.map((model) => codexModelFamily(model.slug)));
   return catalog.models.flatMap((entry) => {
     if (entry.status !== "current" || discovered.has(codexModelFamily(entry.slug))) return [];
-    const minVersion = Option.getOrUndefined(decodeCodexModelAdapter(entry.adapter ?? {}))?.codex
-      ?.minVersion;
+    const adapter = Option.getOrUndefined(decodeCodexModelAdapter(entry.adapter ?? {}));
+    const minVersion = adapter?.gapcode?.minVersion ?? adapter?.codex?.minVersion;
     if (!minVersion || parseSemver(minVersion) === null) return [];
     if (compareSemverVersions(version, minVersion) >= 0) return [];
     return [
