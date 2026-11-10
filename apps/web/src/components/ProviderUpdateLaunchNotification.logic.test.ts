@@ -356,7 +356,7 @@ describe("getProviderUpdateRunToastView", () => {
   });
 
   it("handles GapCode provider update candidate and sidebar pill view", () => {
-    const gapCodeCandidate = provider({
+    const gapCodeCandidate = updateCandidate({
       driver: driver("gapcode"),
       version: "0.164.1",
       latestVersion: "0.164.3",
