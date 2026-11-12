@@ -1,0 +1,178 @@
+name: Release SSH CLI runtimes
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact version of the existing draft release, without the v prefix
+        required: true
+        type: string
+      clerk_publishable_key:
+        description: Fork's Clerk publishable key
+        required: true
+        type: string
+      clerk_jwt_template:
+        description: Fork's Clerk JWT template name
+        required: true
+        type: string
+      clerk_cli_oauth_client_id:
+        description: Fork's Clerk CLI OAuth client ID
+        required: true
+        type: string
+      relay_url:
+        description: Fork's public Relay HTTPS URL
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build_bundle:
+    name: Build shared runtime bundle
+    runs-on: ubuntu-24.04
+    env:
+      T3CODE_CLERK_PUBLISHABLE_KEY: ${{ inputs.clerk_publishable_key }}
+      T3CODE_CLERK_JWT_TEMPLATE: ${{ inputs.clerk_jwt_template }}
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: ${{ inputs.clerk_cli_oauth_client_id }}
+      T3CODE_RELAY_URL: ${{ inputs.relay_url }}
+      T3CODE_TELEMETRY_CHANNEL: dev
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+
+      - name: Align package versions
+        run: node scripts/update-release-package-versions.ts "$VERSION"
+
+      - name: Build JS bundle
+        run: vp run build:desktop:bundle
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae6568e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ssh-cli-js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 1
+
+  build_linux_cli:
+    name: Build Linux ${{ matrix.arch }} SSH runtime
+    needs: build_bundle
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+            resource_key: linux-x64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+            resource_key: linux-arm64
+    env:
+      T3CODE_CLERK_PUBLISHABLE_KEY: ${{ inputs.clerk_publishable_key }}
+      T3CODE_CLERK_JWT_TEMPLATE: ${{ inputs.clerk_jwt_template }}
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: ${{ inputs.clerk_cli_oauth_client_id }}
+      T3CODE_RELAY_URL: ${{ inputs.relay_url }}
+      T3CODE_TELEMETRY_CHANNEL: dev
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ssh-cli-js-bundle
+          path: apps
+
+      - name: Align package versions
+        run: node scripts/update-release-package-versions.ts "$VERSION"
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build resource monitor
+        run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${{ matrix.rust_target }}"
+
+      - name: Stage resource monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_dir="$RUNNER_TEMP/cli-resource-monitor/${{ matrix.resource_key }}"
+          mkdir -p "$target_dir"
+          cp "native/resource-monitor/target/${{ matrix.rust_target }}/release/t3-resource-monitor" "$target_dir/t3-resource-monitor"
+
+      - name: Build CLI executable
+        run: node apps/server/scripts/cli.ts build-exe --verbose
+
+      - name: Install patchelf
+        run: command -v patchelf || { sudo apt-get update && sudo apt-get install -y patchelf; }
+
+      - name: Build Linux CLI archive
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-nightly\.[0-9]{8}\.[0-9]+)?$ ]] || { echo "Invalid release version: $VERSION" >&2; exit 1; }
+          node scripts/build-cli-archive.ts \
+            --platform linux \
+            --arch "${{ matrix.arch }}" \
+            --version "$VERSION" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" \
+            --output-dir release-cli
+
+      - name: Smoke-test CLI archive
+        run: node scripts/smoke-cli-archive.ts --archive release-cli/* --expect-version "$VERSION"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae6568e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ssh-cli-linux-${{ matrix.arch }}
+          path: release-cli/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+
+  upload_release_assets:
+    name: Upload SSH runtimes to draft release
+    needs: build_linux_cli
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: ssh-cli-linux-*
+          path: release-cli
+          merge-multiple: true
+
+      - name: Create checksums and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-nightly.* ]]; then
+            tag="v$VERSION"
+          else
+            tag="custom-main-v$VERSION"
+          fi
+          release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,targetCommitish)"
+          [[ "$(jq -r .isDraft <<<"$release_json")" == "true" ]] || { echo "Expected $tag to be a draft release." >&2; exit 1; }
+          [[ "$(jq -r .targetCommitish <<<"$release_json")" == "$GITHUB_SHA" ]] || { echo "Draft release $tag does not target this workflow commit." >&2; exit 1; }
+          cd release-cli
+          sha256sum t3-*.tar.gz > SHA256SUMS
+          gh release upload "$tag" t3-*.tar.gz SHA256SUMS --repo "$GITHUB_REPOSITORY"

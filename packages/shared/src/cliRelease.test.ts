@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cliArchiveTarCommand, newestCliReleaseVersion, parseChecksums } from "./cliRelease.ts";
+import {
+  cliArchiveTarCommand,
+  cliReleaseAssetUrl,
+  cliReleaseDownloadBaseUrl,
+  cliReleaseTag,
+  newestCliReleaseVersion,
+  parseChecksums,
+} from "./cliRelease.ts";
 
 describe("cliRelease", () => {
+  it("downloads SSH runtime archives from the fork release", () => {
+    expect(cliReleaseDownloadBaseUrl("")).toBe(
+      "https://github.com/armiiin-jp/t3code/releases/download",
+    );
+    expect(cliReleaseDownloadBaseUrl("1.2.3-nightly.20261112.1")).toBe(
+      "https://github.com/armiiin-jp/t3code/releases/download/v1.2.3-nightly.20261112.1",
+    );
+    expect(cliReleaseAssetUrl("1.2.3", "SHA256SUMS")).toBe(
+      "https://github.com/armiiin-jp/t3code/releases/download/custom-main-v1.2.3/SHA256SUMS",
+    );
+    expect(cliReleaseTag("1.2.3")).toBe("custom-main-v1.2.3");
+    expect(cliReleaseTag("1.2.3-nightly.20261112.1")).toBe("v1.2.3-nightly.20261112.1");
+  });
+
   it("parses sha256sum output including binary-mode markers", () => {
     const checksums = parseChecksums(
       [
@@ -32,11 +53,13 @@ describe("cliRelease", () => {
       { tag_name: "v1.2.4-nightly.20260912.7" },
       { tag_name: "desktop-preview" },
       { tag_name: "v1.2.3" },
+      { tag_name: "custom-main-v1.2.2" },
       { tag_name: "v1.2.3-nightly.20260911.2" },
     ];
     expect(newestCliReleaseVersion(releases, "preview")).toBe("1.2.4-preview.20260912.8");
     expect(newestCliReleaseVersion(releases, "nightly")).toBe("1.2.4-nightly.20260912.7");
     expect(newestCliReleaseVersion(releases, "stable")).toBe("1.2.3");
+    expect(newestCliReleaseVersion([{ tag_name: "custom-main-v1.2.3" }], "stable")).toBe("1.2.3");
     expect(newestCliReleaseVersion([{ tag_name: "v1.2.3" }], "preview")).toBeUndefined();
   });
 });
