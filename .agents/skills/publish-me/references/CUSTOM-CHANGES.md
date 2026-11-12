@@ -4,7 +4,7 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `62dc589d6d`, fork `main` synced through `ef44927ecb`, and `custom/main` at `b65cc3ff0a` before this sync (2026-11-12).
+Baseline checked: upstream `main` at `62dc589d6d`, fork `main` synced through `e7d41b7f6c`, and `custom/main` at `b65cc3ff0a` before this sync (2026-11-12).
 
 ## Change inventory
 
