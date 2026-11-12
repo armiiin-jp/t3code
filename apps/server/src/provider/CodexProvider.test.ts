@@ -5,6 +5,7 @@ import {
   codexAccountAuthLabel,
   gapCodePlanLabel,
   gapCodePlanTier,
+  codexRoutesSpendNativeQuota,
   mapCodexModelCapabilities,
 } from "./CodexProvider.ts";
 
@@ -186,4 +187,29 @@ it("uses the current usage plan for Codex and GapCode account labels", () => {
     codexAccountAuthLabel(account, "plus", "pro", { authLabel: "GapGPT" }),
     "GapGPT subscription (Pro (More))",
   );
+});
+
+it("reports native quota only for an OpenAI login on a native route", () => {
+  const chatgpt = { type: "chatgpt", email: "a@example.com", planType: "pro" } as const;
+  const hub = {
+    model_provider: "hub",
+    model_providers: { hub: { base_url: "https://hub.example.com/v1" } },
+  };
+  const cases = [
+    ["default route", chatgpt, true, {}, true],
+    ["openai base url", chatgpt, true, { openai_base_url: "https://chatgpt.com/x" }, true],
+    ["openai proxy url", chatgpt, true, { openai_base_url: "https://proxy.example.com" }, false],
+    ["custom provider", chatgpt, true, hub, false],
+    ["unknown provider id", chatgpt, true, { model_provider: "missing" }, false],
+    ["unreadable config", chatgpt, true, null, false],
+    ["login not required", chatgpt, false, {}, false],
+    ["api key", { type: "apiKey" }, true, {}, false],
+  ] as const;
+  for (const [name, account, requiresOpenaiAuth, config, expected] of cases) {
+    assert.strictEqual(
+      codexRoutesSpendNativeQuota({ account, requiresOpenaiAuth }, config),
+      expected,
+      name,
+    );
+  }
 });
