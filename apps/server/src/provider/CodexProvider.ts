@@ -1014,31 +1014,34 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
         ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
         : !snapshot.nativeUsage &&
             !accountStatus.message &&
-            !(snapshot.account.account?.type === "apiKey" && options?.includeApiKeyUsageLimits === true)
+            !(
+              snapshot.account.account?.type === "apiKey" &&
+              options?.includeApiKeyUsageLimits === true
+            )
           ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
-        : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
-          ? makeUnavailableUsageLimits({
-              checkedAt,
-              reason: "probeFailed",
-              ...(accountStatus.message ? { message: accountStatus.message } : {}),
-              ...(snapshot.rateLimits ? { message: snapshot.rateLimits.failure } : {}),
-            })
-          : codexRateLimitsToLimits({
-              snapshot: snapshot.rateLimits.snapshot,
-              rateLimitsByLimitId: snapshot.rateLimits.rateLimitsByLimitId,
-              resetCredits: snapshot.rateLimits.resetCredits,
-              checkedAt,
-              ...(options?.includeUsageAccountFingerprint &&
-              snapshot.rateLimits &&
-              "accountId" in snapshot.rateLimits &&
-              snapshot.rateLimits.accountId
-                ? {
-                    credentialFingerprint: codexUsageCredentialFingerprint(
-                      snapshot.rateLimits.accountId,
-                    ),
-                  }
-                : {}),
-            });
+          : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
+            ? makeUnavailableUsageLimits({
+                checkedAt,
+                reason: "probeFailed",
+                ...(accountStatus.message ? { message: accountStatus.message } : {}),
+                ...(snapshot.rateLimits ? { message: snapshot.rateLimits.failure } : {}),
+              })
+            : codexRateLimitsToLimits({
+                snapshot: snapshot.rateLimits.snapshot,
+                rateLimitsByLimitId: snapshot.rateLimits.rateLimitsByLimitId,
+                resetCredits: snapshot.rateLimits.resetCredits,
+                checkedAt,
+                ...(options?.includeUsageAccountFingerprint &&
+                snapshot.rateLimits &&
+                "accountId" in snapshot.rateLimits &&
+                snapshot.rateLimits.accountId
+                  ? {
+                      credentialFingerprint: codexUsageCredentialFingerprint(
+                        snapshot.rateLimits.accountId,
+                      ),
+                    }
+                  : {}),
+              });
 
   return buildServerProvider({
     presentation: { ...CODEX_PRESENTATION, displayName },
