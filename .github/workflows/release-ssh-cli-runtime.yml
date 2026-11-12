@@ -172,7 +172,10 @@ jobs:
           fi
           release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,targetCommitish)"
           [[ "$(jq -r .isDraft <<<"$release_json")" == "true" ]] || { echo "Expected $tag to be a draft release." >&2; exit 1; }
-          [[ "$(jq -r .targetCommitish <<<"$release_json")" == "$GITHUB_SHA" ]] || { echo "Draft release $tag does not target this workflow commit." >&2; exit 1; }
+          [[ "$(jq -r .targetCommitish <<<"$release_json")" == "$GITHUB_REF_NAME" ]] || { echo "Draft release $tag does not target $GITHUB_REF_NAME." >&2; exit 1; }
+          encoded_ref="$(jq -rn --arg ref "$GITHUB_REF_NAME" '$ref | @uri')"
+          branch_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/$encoded_ref" --jq .commit.sha)"
+          [[ "$branch_sha" == "$GITHUB_SHA" ]] || { echo "The workflow ref moved after dispatch." >&2; exit 1; }
           cd release-cli
           sha256sum t3-*.tar.gz > SHA256SUMS
           gh release upload "$tag" t3-*.tar.gz SHA256SUMS --repo "$GITHUB_REPOSITORY"
