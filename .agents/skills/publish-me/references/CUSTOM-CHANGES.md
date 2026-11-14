@@ -15,7 +15,7 @@ Baseline checked: upstream `main` at `d899bddfa2a6f824411eaae10fb7a8fa0a37bbb7`,
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
 | Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work. |
-| Publish-me project skill           | Publishes Windows x64 desktop installers and channel-specific update feeds.                     |
+| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes for both channels.    |
 | Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
 
 ## Detailed changes
@@ -109,10 +109,10 @@ Baseline checked: upstream `main` at `d899bddfa2a6f824411eaae10fb7a8fa0a37bbb7`,
 
 - Keep `.agents/skills/publish-me/SKILL.md` and its `agents/openai.yaml`
   project metadata discoverable by supported harnesses, with plain UTF-8
-  frontmatter that the skills scanner can parse. The skill directs
-  agents to read this inventory, reconcile every listed change after syncing,
-  build a Windows installer with the explicit GitHub update repository, and
-  publish verified Windows update feeds.
+  frontmatter that the skills scanner can parse. The skill directs agents to
+  read this inventory, reconcile every listed change after syncing, build a
+  Windows installer with the explicit GitHub update repository, and publish
+  Windows and Linux CLI release assets for Stable and Nightly.
 - The first feed-enabled Windows release is stable `0.1.7`, tag
   `custom-main-v0.1.7`, at commit `b7b335a51f6f7ad33f9fd531f3ab65d3bcaa006e`.
   Builds through `0.1.6` need one manual install of `0.1.7`; later stable
@@ -120,14 +120,20 @@ Baseline checked: upstream `main` at `d899bddfa2a6f824411eaae10fb7a8fa0a37bbb7`,
   download and restart in the app.
 - Keep stable tags in the `custom-main-v<MAJOR.MINOR.PATCH>` form. The stable
   updater follows GitHub's latest release and reads `latest.yml`.
-- Package Windows x64 desktop only. Do not build or publish Linux CLI
-  archives, Linux desktop packages, AppImages, or WSL runtimes.
+- Include Linux CLI runtime archives for x64 and arm64 plus `SHA256SUMS` on
+  every Stable and Nightly release. These are SSH/server runtimes, not Linux
+  desktop packages, AppImages, or WSL runtimes.
+- Run `.github/workflows/release-ssh-cli-runtime.yml` for the exact release
+  version and commit. It must build from `release_commit`, verify the release
+  channel and immutable tag target, and attach the two archives and checksums
+  to either a draft or already-published release without changing its status.
 - When the user explicitly asks to publish on Nightly, publish a Windows x64
   desktop prerelease from `custom/main` with a SemVer `v<version>` tag,
-  `nightly.yml` manifest, and blockmap in `armiiin-jp/t3code`. Nightly tags
-  must be SemVer because electron-updater filters release tags before reading
-  the manifest. Keep it separate from Stable's `latest.yml` feed; this is an
-  on-demand release mode, not a scheduled build.
+  `nightly.yml` manifest, and blockmap in `armiiin-jp/t3code`, plus the Linux
+  x64/arm64 CLI archives and `SHA256SUMS`. Nightly tags must be SemVer because
+  electron-updater filters release tags before reading the manifest. Keep it
+  separate from Stable's `latest.yml` feed; this is an on-demand release mode,
+  not a scheduled build.
 - Keep the root `AGENTS.md` link to this inventory so future syncs and releases
   account for the fork-specific changes.
 

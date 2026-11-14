@@ -1,4 +1,4 @@
 interface:
   display_name: "Publish me"
-  short_description: "Sync custom/main and publish a Windows release"
-  default_prompt: "Use $publish-me to sync upstream main into the fork and custom/main, preserve every documented custom change, build and verify a versioned Windows installer with its update feed, then publish a stable latest release."
+  short_description: "Sync custom/main and publish Windows/Linux releases"
+  default_prompt: "Use $publish-me to sync upstream main into the fork and custom/main, preserve every documented custom change, build and verify the Windows installer and Linux x64/arm64 CLI runtimes with their release assets, then publish a stable latest release."

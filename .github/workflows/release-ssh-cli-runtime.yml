@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact version of the existing draft release, without the v prefix
+        description: Exact release version, without the v prefix
         required: true
+        type: string
+      release_commit:
+        description: Exact commit targeted by the release (defaults to the dispatch ref)
+        required: false
         type: string
       clerk_publishable_key:
         description: Fork's Clerk publishable key
@@ -39,11 +43,12 @@ jobs:
       T3CODE_RELAY_URL: ${{ inputs.relay_url }}
       T3CODE_TELEMETRY_CHANNEL: dev
       VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ inputs.release_commit || github.sha }}
     steps:
-      - name: Checkout exact workflow commit
+      - name: Checkout exact release commit
         shell: bash
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ inputs.release_commit || github.sha }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
@@ -96,11 +101,12 @@ jobs:
       T3CODE_RELAY_URL: ${{ inputs.relay_url }}
       T3CODE_TELEMETRY_CHANNEL: dev
       VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ inputs.release_commit || github.sha }}
     steps:
-      - name: Checkout exact workflow commit
+      - name: Checkout exact release commit
         shell: bash
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ inputs.release_commit || github.sha }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
@@ -180,20 +186,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ inputs.release_commit || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid release commit: $RELEASE_COMMIT" >&2; exit 1; }
           if [[ "$VERSION" == *-nightly.* ]]; then
             tag="v$VERSION"
+            expected_prerelease=true
           else
             tag="custom-main-v$VERSION"
+            expected_prerelease=false
           fi
-          release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,targetCommitish)"
-          [[ "$(jq -r .isDraft <<<"$release_json")" == "true" ]] || { echo "Expected $tag to be a draft release." >&2; exit 1; }
-          [[ "$(jq -r .targetCommitish <<<"$release_json")" == "$GITHUB_REF_NAME" ]] || { echo "Draft release $tag does not target $GITHUB_REF_NAME." >&2; exit 1; }
-          encoded_ref="$(jq -rn --arg ref "$GITHUB_REF_NAME" '$ref | @uri')"
-          branch_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/$encoded_ref" --jq .commit.sha)"
-          [[ "$branch_sha" == "$GITHUB_SHA" ]] || { echo "The workflow ref moved after dispatch." >&2; exit 1; }
+          release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,targetCommitish)"
+          is_draft="$(jq -r .isDraft <<<"$release_json")"
+          is_prerelease="$(jq -r .isPrerelease <<<"$release_json")"
+          [[ "$is_prerelease" == "$expected_prerelease" ]] || { echo "Release $tag has the wrong Stable/Nightly channel." >&2; exit 1; }
+          if [[ "$is_draft" == "true" ]]; then
+            target_commitish="$(jq -r .targetCommitish <<<"$release_json")"
+            [[ "$target_commitish" == "$RELEASE_COMMIT" || ( "$target_commitish" == "$GITHUB_REF_NAME" && "$GITHUB_SHA" == "$RELEASE_COMMIT" ) ]] || { echo "Draft release $tag does not target $RELEASE_COMMIT." >&2; exit 1; }
+          else
+            tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag")"
+            object_sha="$(jq -r .object.sha <<<"$tag_ref")"
+            object_type="$(jq -r .object.type <<<"$tag_ref")"
+            while [[ "$object_type" == "tag" ]]; do
+              annotated_tag="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object_sha")"
+              object_sha="$(jq -r .object.sha <<<"$annotated_tag")"
+              object_type="$(jq -r .object.type <<<"$annotated_tag")"
+            done
+            [[ "$object_type" == "commit" && "$object_sha" == "$RELEASE_COMMIT" ]] || { echo "Published tag $tag does not point to $RELEASE_COMMIT." >&2; exit 1; }
+          fi
           cd release-cli
           sha256sum t3-*.tar.gz > SHA256SUMS
-          gh release upload "$tag" t3-*.tar.gz SHA256SUMS --repo "$GITHUB_REPOSITORY"
+          gh release upload "$tag" t3-*.tar.gz SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
