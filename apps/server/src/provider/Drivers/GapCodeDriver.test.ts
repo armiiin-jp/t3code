@@ -25,6 +25,7 @@ import * as ModelManifest from "../ModelManifest.ts";
 import * as ProviderHostLive from "../ProviderHostLive.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
 import * as CodexAdapterV2 from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
+import * as PortScanner from "../../preview/PortScanner.ts";
 import { GapCodeDriver } from "./GapCodeDriver.ts";
 
 const layerDeps = ServerConfig.layerTest(process.cwd(), {
@@ -33,6 +34,7 @@ const layerDeps = ServerConfig.layerTest(process.cwd(), {
   Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   Layer.provideMerge(IdAllocator.layer),
   Layer.provideMerge(McpProviderSessions.layer),
+  Layer.provideMerge(PortScanner.layerTest),
   Layer.provideMerge(
     Layer.mock(CodexAdapterV2.CodexAppServerClientFactory)({
       open: () => Effect.die("Maintenance resolution must not open a GapCode session"),

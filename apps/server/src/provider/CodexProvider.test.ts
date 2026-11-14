@@ -5,6 +5,7 @@ import {
   codexAccountAuthLabel,
   gapCodePlanLabel,
   gapCodePlanTier,
+  codexCustomEndpoint,
   codexRoutesSpendNativeQuota,
   shouldReadCodexRateLimits,
   mapCodexModelCapabilities,
@@ -20,6 +21,7 @@ it("maps current Codex model capability fields", () => {
     id: "gpt-test",
     isDefault: true,
     model: "gpt-test",
+    availableAccessPrograms: { cyber: ["standard", "daybreakBlue"] },
     defaultServiceTier: "flex",
     serviceTiers: [
       {
@@ -68,6 +70,16 @@ it("maps current Codex model capability fields", () => {
         },
       ],
       currentValue: "flex",
+    },
+    {
+      id: "cyberAccessProgram",
+      label: "Cyber Access",
+      type: "select",
+      options: [
+        { id: "standard", label: "Standard", isDefault: true },
+        { id: "daybreakBlue", label: "Daybreak Blue" },
+      ],
+      currentValue: "standard",
     },
   ]);
 });
@@ -213,6 +225,14 @@ it("reports native quota only for an OpenAI login on a native route", () => {
       name,
     );
   }
+  // The custom endpoint is what a usage-limit hub is matched against.
+  assert.strictEqual(codexCustomEndpoint(hub), "https://hub.example.com");
+  assert.strictEqual(
+    codexCustomEndpoint({ openai_base_url: "http://127.0.0.1:8317/v1" }),
+    "http://127.0.0.1:8317",
+  );
+  assert.strictEqual(codexCustomEndpoint({ openai_base_url: "https://chatgpt.com/x" }), undefined);
+  assert.strictEqual(codexCustomEndpoint({}), undefined);
 });
 
 it("reads limits for API-key providers that explicitly support them", () => {
