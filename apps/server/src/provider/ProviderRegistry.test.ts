@@ -482,6 +482,42 @@ it.layer(
       }),
     );
 
+    it.effect("includes API-key usage limits when a provider opts in", () =>
+      Effect.gen(function* () {
+        const apiKeySnapshot = makeCodexProbeSnapshot({
+          account: {
+            account: { type: "apiKey" },
+            requiresOpenaiAuth: false,
+          },
+          nativeUsage: false,
+          rateLimits: {
+            snapshot: { primary: { usedPercent: 12, windowDurationMins: 300 } },
+            resetCredits: null,
+          },
+        });
+        const status = yield* checkCodexProviderStatus(
+          defaultCodexSettings,
+          (input) => {
+            assert.strictEqual(input.includeApiKeyUsageLimits, true);
+            return Effect.succeed(apiKeySnapshot);
+          },
+          undefined,
+          undefined,
+          { includeApiKeyUsageLimits: true },
+        );
+
+        assert.deepStrictEqual(status.usageLimits?.windows, [
+          {
+            id: "primary",
+            kind: "session",
+            label: "Session",
+            usedPercent: 12,
+            windowDurationMins: 300,
+          },
+        ]);
+      }),
+    );
+
     it.effect("reads the version of a Codex CLI too old to run app-server (#20351)", () =>
       Effect.gen(function* () {
         if ((yield* HostProcess.Platform) === "win32") return;

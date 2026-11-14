@@ -125,6 +125,15 @@ export const codexRoutesSpendNativeQuota = (
 ): boolean =>
   account.requiresOpenaiAuth && account.account?.type !== "apiKey" && routesToNativeOpenai(config);
 
+export const shouldReadCodexRateLimits = (
+  account: CodexSchema.V2GetAccountResponse,
+  nativeUsage: boolean,
+  includeApiKeyUsageLimits: boolean,
+  skipNativeUsage: boolean,
+): boolean =>
+  !skipNativeUsage &&
+  (nativeUsage || (includeApiKeyUsageLimits && account.account?.type === "apiKey"));
+
 const CODEX_APP_SERVER_PROBE_FORCE_KILL_AFTER = "2 seconds" as const;
 const CODEX_CATALOG_REFRESH_TIMEOUT_MS = 3_000;
 const CODEX_CONFIG_PROBE_TIMEOUT_MS = 3_000;
@@ -675,6 +684,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
   readonly cwd: string;
   readonly environment?: NodeJS.ProcessEnv;
   readonly skipNativeUsage?: boolean;
+  readonly includeApiKeyUsageLimits?: boolean;
 }) {
   const spawnedAtMs = DateTime.toEpochMillis(yield* DateTime.now);
   const { client, initialize } = yield* withCodexAppServerClient(input);
@@ -718,9 +728,15 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
             !input.skipNativeUsage &&
             config !== undefined &&
             codexRoutesSpendNativeQuota(accountResponse, config.config);
-          const readUsage: Effect.Effect<CodexRateLimitsProbe | undefined> = nativeUsage
-            ? readCodexRateLimits(client, deadlineMs)
-            : Effect.undefined;
+          const readUsage: Effect.Effect<CodexRateLimitsProbe | undefined> =
+            shouldReadCodexRateLimits(
+              accountResponse,
+              nativeUsage,
+              input.includeApiKeyUsageLimits === true,
+              input.skipNativeUsage === true,
+            )
+              ? readCodexRateLimits(client, deadlineMs)
+              : Effect.undefined;
           return readUsage.pipe(
             Effect.map((rateLimits) => ({
               serviceTier: config?.config.service_tier ?? undefined,
@@ -895,6 +911,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     readonly cwd: string;
     readonly environment?: NodeJS.ProcessEnv;
     readonly skipNativeUsage?: boolean;
+    readonly includeApiKeyUsageLimits?: boolean;
     readonly includeUsageAccountFingerprint?: boolean;
     readonly includeUsageLimits?: boolean;
   }) => Effect.Effect<
@@ -941,6 +958,9 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     cwd: process.cwd(),
     environment: resolvedEnvironment,
     ...(managedAuth ? { skipNativeUsage: true } : {}),
+    ...(options?.includeApiKeyUsageLimits !== undefined
+      ? { includeApiKeyUsageLimits: options.includeApiKeyUsageLimits }
+      : {}),
     ...(options?.includeUsageLimits !== undefined
       ? { includeUsageLimits: options.includeUsageLimits }
       : {}),

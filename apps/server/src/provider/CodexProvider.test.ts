@@ -6,6 +6,7 @@ import {
   gapCodePlanLabel,
   gapCodePlanTier,
   codexRoutesSpendNativeQuota,
+  shouldReadCodexRateLimits,
   mapCodexModelCapabilities,
 } from "./CodexProvider.ts";
 
@@ -212,4 +213,16 @@ it("reports native quota only for an OpenAI login on a native route", () => {
       name,
     );
   }
+});
+
+it("reads limits for API-key providers that explicitly support them", () => {
+  const account = { account: { type: "apiKey" }, requiresOpenaiAuth: false } as const;
+  assert.strictEqual(shouldReadCodexRateLimits(account, false, true, false), true);
+  assert.strictEqual(shouldReadCodexRateLimits(account, false, false, false), false);
+  assert.strictEqual(shouldReadCodexRateLimits(account, false, true, true), false);
+  assert.strictEqual(shouldReadCodexRateLimits(account, true, false, false), true);
+  assert.strictEqual(
+    shouldReadCodexRateLimits({ account: null, requiresOpenaiAuth: false }, false, true, false),
+    false,
+  );
 });
