@@ -288,9 +288,9 @@ function parseCodexRecord(
       dateCodexBaseline(state, timestampMs);
       delete state.unreportedRequests;
       return [
-        ...pending.map((request) => codexRequestRecord(state, request.usage, request)),
+        ...pending.map((request) => codexRequestRecord(state, request.usage, request, provider)),
         {
-          ...codexRequestRecord(state, usage, codexAttribution(state, timestampMs)),
+          ...codexRequestRecord(state, usage, codexAttribution(state, timestampMs), provider),
           dedupeKey: JSON.stringify(["codex", state.sessionId, responseId]),
         },
       ];

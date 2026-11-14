@@ -83,7 +83,7 @@ describe("ChatMarkdown RTL support and bidirectional text layout", () => {
     const html = renderToStaticMarkup(
       <ChatMarkdown cwd={undefined} text={"> [!NOTE]\n> این یک پیام هشدار مهم است."} />,
     );
-    expect(html).toContain('<div role="note" dir="rtl"');
+    expect(html.match(/<div\b[^>]*\brole="note"[^>]*>/)?.[0]).toContain('dir="rtl"');
   });
 
   it("ensures inline code maintains dir='ltr' even inside Persian paragraphs", () => {

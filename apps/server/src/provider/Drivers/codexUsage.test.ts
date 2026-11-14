@@ -70,6 +70,22 @@ describe("parseCodexLine", () => {
     expect(record).toMatchObject({ provider: "gapcode", model: "gpt-5.6-sol" });
   });
 
+  it("keeps request-ledger usage attributed to GapCode", () => {
+    const state = initialCodexScanState();
+    gapCodeUsageFormat.parseLine(sessionMeta, state);
+    gapCodeUsageFormat.parseLine(turnContext, state);
+    const [record] = gapCodeUsageFormat.parseLine(
+      JSON.stringify({
+        type: "token_usage_record",
+        timestamp: "2026-08-01T05:17:49.919Z",
+        payload: { response_id: "response-1", usage: counters(100, 10) },
+      }),
+      state,
+    );
+
+    expect(record).toMatchObject({ provider: "gapcode", model: "gpt-5.6-sol" });
+  });
+
   it("attributes usage to the model from the preceding turn context", () => {
     const state = initialCodexScanState();
     parseCodexLine(sessionMeta, state);
