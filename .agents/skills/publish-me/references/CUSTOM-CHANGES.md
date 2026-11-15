@@ -4,19 +4,19 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `d899bddfa2a6f824411eaae10fb7a8fa0a37bbb7`, fork `main` synced through `c82f43a68158c202efb91178fe8e0e6d0c95e415`, and `custom/main` at `8ef391c5e892c4bcb4dae4acb49ade8ee538600e` before this sync (2026-11-14).
+Baseline checked: upstream `main` at `f0495f741757c0103ed6995621111aec231a526b`, fork `main` synced through `e333df0918651d8c384d1a7e73c04e2a6b0693d2`, and `custom/main` at `2d3d18a4c884e386a980f64015b7c3954562e46a` before this sync (2026-11-15).
 
 ## Change inventory
 
-| Change                             | Description                                                                                     |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.    |
-| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer. |
-| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.        |
-| RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.          |
-| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work. |
-| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes for both channels.    |
-| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.       |
+| Change                             | Description                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.            |
+| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.         |
+| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                |
+| RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.                  |
+| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work.         |
+| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes above the Nightly feed floor. |
+| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.               |
 
 ## Detailed changes
 
@@ -134,6 +134,11 @@ Baseline checked: upstream `main` at `d899bddfa2a6f824411eaae10fb7a8fa0a37bbb7`,
   electron-updater filters release tags before reading the manifest. Keep it
   separate from Stable's `latest.yml` feed; this is an on-demand release mode,
   not a scheduled build.
+- Keep the fork Nightly version at or above upstream's current Nightly version
+  prefix. If upstream Nightlies have moved past the latest stable version, use
+  their newer prefix and choose a sequence above the highest upstream sequence
+  for that prefix, so the fork release remains discoverable by the Nightly
+  update feed.
 - Keep the root `AGENTS.md` link to this inventory so future syncs and releases
   account for the fork-specific changes.
 
