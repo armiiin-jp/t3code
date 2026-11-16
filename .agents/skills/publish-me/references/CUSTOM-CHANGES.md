@@ -4,20 +4,20 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked: upstream `main` at `183029dee8`, fork `main` synced through `49c4a4d1e5`, and `custom/main` at `49c4a4d1e5` after integrating upstream (2026-11-16).
+Baseline checked: upstream `main` at `506a0438a3`, fork `main` synced through `804257cdea`, and `custom/main` at `5d61bd8a35` after recovery and integration (2026-11-16).
 
 ## Change inventory
 
-| Change                             | Description                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.                 |
-| GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                     |
-| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.              |
-| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                     |
-| RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.                       |
-| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work.              |
-| Publish-me project skill           | Publishes macOS and Windows desktop packages plus Linux x64/arm64 CLI runtimes above the Nightly feed floor. |
-| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.                    |
+| Change                             | Description                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.            |
+| GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                |
+| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.         |
+| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                |
+| RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.                  |
+| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work.         |
+| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes above the Nightly feed floor. |
+| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.               |
 
 ## Detailed changes
 
@@ -126,7 +126,7 @@ Baseline checked: upstream `main` at `183029dee8`, fork `main` synced through `4
   frontmatter that the skills scanner can parse. The skill directs agents to
   read this inventory, reconcile every listed change after syncing, build a
   Windows installer with the explicit GitHub update repository, and publish
-  macOS and Windows desktop packages plus Linux CLI release assets for Stable and Nightly.
+  Windows and Linux CLI release assets for Stable and Nightly.
 - The first feed-enabled Windows release is stable `0.1.7`, tag
   `custom-main-v0.1.7`, at commit `b7b335a51f6f7ad33f9fd531f3ab65d3bcaa006e`.
   Builds through `0.1.6` need one manual install of `0.1.7`; later stable
@@ -134,11 +134,9 @@ Baseline checked: upstream `main` at `183029dee8`, fork `main` synced through `4
   download and restart in the app.
 - Keep stable tags in the `custom-main-v<MAJOR.MINOR.PATCH>` form. The stable
   updater follows GitHub's latest release and reads `latest.yml`.
-- Include macOS desktop DMGs for x64 and arm64 on every Stable and Nightly release.
 - Include Linux CLI runtime archives for x64 and arm64 plus `SHA256SUMS` on
   every Stable and Nightly release. These are SSH/server runtimes, not Linux
   desktop packages, AppImages, or WSL runtimes.
-- Build the macOS x64 and arm64 DMGs from the exact release commit with `.github/workflows/release-custom-macos.yml`.
 - Run `.github/workflows/release-ssh-cli-runtime.yml` for the exact release
   version and commit. It must build from `release_commit`, verify the release
   channel and immutable tag target, and attach the two archives and checksums

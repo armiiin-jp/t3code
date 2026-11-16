@@ -1,6 +1,6 @@
 ---
 name: publish-me
-description: Use when the user asks to sync or publish `custom/main` Stable or Nightly releases with macOS and Windows desktop packages and Linux CLI runtime assets.
+description: Use when the user asks to sync or publish `custom/main` Stable or Nightly releases with Windows desktop and Linux CLI runtime assets.
 ---
 
 # Publish custom/main
@@ -14,20 +14,19 @@ Use this workflow when asked to publish the fork's latest changes. If the user s
 
 ## Required release assets
 
-- Every Stable and Nightly release includes macOS desktop DMGs for x64 and arm64, a Windows x64 desktop installer, and Linux SSH/CLI runtime archives for x64 and arm64. The Linux archives are server runtimes, not Linux desktop packages.
+- Every Stable and Nightly release includes a Windows x64 desktop installer and Linux SSH/CLI runtime archives for x64 and arm64. These Linux archives are server runtimes, not Linux desktop packages.
 - Do not build or publish Linux desktop packages, AppImages, or WSL runtimes.
-- Build macOS DMGs on macOS runners with `.github/workflows/release-custom-macos.yml`, passing the exact version and release commit; attach both architecture DMGs to the draft.
 - After creating a draft release, dispatch `.github/workflows/release-ssh-cli-runtime.yml` to build both Linux CLI architectures and attach them with `SHA256SUMS`. For an already-published release, the workflow may add these assets only after verifying the existing release channel and exact immutable tag commit. Pass `release_commit` so it builds the release's code even when the workflow has since changed.
 - Supply the workflow's four public build configuration values from `.env`; never print them in logs or responses.
 - Set the desktop update repository to `armiiin-jp/t3code` for every Windows build.
 
 ## Nightly mode
 
-- Publish the current `custom/main` commit as macOS x64/arm64 and Windows x64 desktop packages plus Linux CLI x64/arm64 runtimes in a prerelease in `armiiin-jp/t3code`. This is a release-time action, not a request to schedule a recurring workflow.
+- Publish the current `custom/main` commit as a Windows x64 desktop and Linux CLI prerelease in `armiiin-jp/t3code`. This is a release-time action, not a request to schedule a recurring workflow.
 - Use a version matching `MAJOR.MINOR.PATCH-nightly.YYYYMMDD.N`, where the date is UTC and `N` is greater than the latest upstream Nightly sequence for that version prefix and unused in the fork. Start from the latest stable version, but if upstream Nightlies have advanced to a higher `MAJOR.MINOR.PATCH`, use that newer prefix so the fork build is not below the Nightly update-feed version floor. Do not reuse a version or tag. Use the exact SemVer tag `v<version>` (for example, `v0.1.10-nightly.20261115.4710`); electron-updater skips non-SemVer release tags when selecting a Nightly update.
 - Set `T3CODE_DESKTOP_UPDATE_REPOSITORY=armiiin-jp/t3code` explicitly and build with the selected version using the established desktop artifact process. The nightly version makes electron-builder emit `nightly.yml` and the Windows blockmap alongside the x64 installer.
-- Upload the Windows installer, blockmap, and `nightly.yml` to a draft release targeting the exact `custom/main` commit. Build and attach both macOS DMGs with `release-custom-macos.yml`, then run the Linux runtime workflow with the same version and release commit. Verify both Linux archives plus `SHA256SUMS`, then publish as a prerelease. Never mark a Nightly release as latest or replace an existing release/tag.
-- Verify the release is a prerelease, the tag targets the intended commit, and `nightly.yml` names the matching installer and version with the correct SHA-512 and size. Confirm the Windows installer, blockmap, `nightly.yml`, both macOS DMGs, both Linux CLI archives, and `SHA256SUMS` are attached. The app's Settings channel switch reads this `nightly.yml` from the repository embedded in the installed app; users still start the download and restart to install.
+- Upload the Windows installer, blockmap, and `nightly.yml` to a draft release targeting the exact `custom/main` commit. Run the Linux runtime workflow with the same version and release commit, verify its x64 and arm64 archives plus `SHA256SUMS`, then publish as a prerelease. Never mark a Nightly release as latest or replace an existing release/tag.
+- Verify the release is a prerelease, the tag targets the intended commit, and `nightly.yml` names the matching installer and version with the correct SHA-512 and size. Confirm the installer, blockmap, both Linux CLI archives, and `SHA256SUMS` are attached. The app's Settings channel switch reads this `nightly.yml` from the repository embedded in the installed app; users still start the download and restart to install.
 
 1. Inspect the worktree, current branch, remotes, latest fork release, and project release scripts. Preserve all existing local work. Confirm the configured upstream is the real `pingdotgg/t3code` repository and the fork remote targets the user's GitHub fork. Never assume remote names or overwrite a release tag.
 2. Fetch upstream `main` and the fork's `main` and `custom/main`. Update the fork's `main` from upstream `main`, then integrate that result into `custom/main`. Preserve fork-specific changes in the inventory, resolving conflicts in favor of the intended behavior while adapting to upstream's current implementation. Do not drop unrelated user edits. If the history cannot be safely integrated, stop and report the concrete conflict.
@@ -38,7 +37,7 @@ Use this workflow when asked to publish the fork's latest changes. If the user s
 
 ## Update feed behavior
 
-- The Nightly desktop channel reads `nightly.yml` from the same embedded fork repository. Publish it with the Windows x64 installer and blockmap on a prerelease; stable desktop releases continue to use `latest.yml`. Both releases also carry macOS x64 and arm64 desktop DMGs and Linux x64 and arm64 CLI archives with `SHA256SUMS`.
+- The Nightly desktop channel reads `nightly.yml` from the same embedded fork repository. Publish it with the Windows x64 installer and blockmap on a prerelease; stable desktop releases continue to use `latest.yml`. Both releases also carry Linux x64 and arm64 CLI archives with `SHA256SUMS`.
 - The first feed-enabled Windows release is version `0.1.7`, tag `custom-main-v0.1.7`, at commit `b7b335a51f6f7ad33f9fd531f3ab65d3bcaa006e`. Builds through `0.1.6` do not embed this repository's update feed and need one manual install of `0.1.7` before in-app update discovery works.
 - After that bootstrap, the desktop app checks the stable GitHub feed in the background and offers an available update in the app. The user still initiates download and restart.
 - Verify the live endpoint `https://github.com/armiiin-jp/t3code/releases/latest/download/latest.yml` after publishing. It must resolve to the newly published version and installer asset.
