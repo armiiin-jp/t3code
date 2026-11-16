@@ -11,6 +11,7 @@ Baseline checked: upstream `main` at `f0495f741757c0103ed6995621111aec231a526b`,
 | Change                             | Description                                                                                             |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.            |
+| GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                |
 | GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.         |
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                |
 | RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.                  |
@@ -51,6 +52,19 @@ Baseline checked: upstream `main` at `f0495f741757c0103ed6995621111aec231a526b`,
 - Support GapCode model update required notices in the model picker, mapping
   runtime name `gapcode` to "the GapCode CLI" and adapting catalog minVersion
   checks.
+
+### GapCode account isolation
+
+- Keep the default `gapcode` instance on its existing home and assign each
+  additional instance its own `~/.gapcode-t3/<instanceId>` home unless an
+  explicit `GAPCODE_HOME path` is configured.
+- Resolve the installed GapCode launcher to its bundled executable before
+  starting an instance. The launcher resets `GAPCODE_HOME`; never fall back to
+  it for an isolated account if executable resolution fails.
+- Keep GapGPT browser sign-in, cancellation, and logout attached to the
+  instance's home, and read transcript usage from that same home.
+- Keep the provider card's GapGPT sign-in action and onboarding login command
+  aligned with the selected instance home.
 
 ## Composer motion and controls
 
