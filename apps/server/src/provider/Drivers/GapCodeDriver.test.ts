@@ -144,6 +144,9 @@ it.layer(testLayer)("GapCodeDriver", (it) => {
       });
       expect(instance.auth).toBeDefined();
       expect(yield* fs.stat(homePath).pipe(Effect.map((stat) => stat.type))).toBe("Directory");
+      expect((yield* instance.snapshot.getSnapshot).setup?.canAuthenticate).toBe(true);
+      const refreshed = yield* instance.snapshot.refresh;
+      expect(refreshed.setup?.canAuthenticate).toBe(true);
     }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, noSpawn), Effect.scoped),
   );
 

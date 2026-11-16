@@ -54,6 +54,7 @@ import {
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
 } from "@t3tools/provider-core/server/snapshotSettings";
+import type { ServerProviderDraft } from "@t3tools/provider-core/server/snapshotProbe";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
@@ -147,6 +148,17 @@ const PROVIDER_OPTIONS = {
   preferCodexDefaultModel: false,
   feedbackDescription: "Send this thread and GapCode logs to GapCode",
 } as const;
+
+function withGapCodeAuthenticationSetup(draft: ServerProviderDraft): ServerProviderDraft {
+  return {
+    ...draft,
+    setup: {
+      canAuthenticate: true,
+      canInstall: draft.setup?.canInstall ?? false,
+      ...(draft.setup?.documentationUrl ? { documentationUrl: draft.setup.documentationUrl } : {}),
+    },
+  };
+}
 
 function toCodexSettings(config: GapCodeSettings): CodexSettings {
   return {
@@ -296,14 +308,16 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
           currentCatalog,
           (draft, catalog) =>
             stampIdentity(
-              applyCodexModelCatalog(
-                homePath && draft.auth.status === "unauthenticated"
-                  ? {
-                      ...draft,
-                      message: `Sign in with the configured GapCode executable and GAPCODE_HOME set to '${homePath}'.`,
-                    }
-                  : draft,
-                catalog,
+              withGapCodeAuthenticationSetup(
+                applyCodexModelCatalog(
+                  homePath && draft.auth.status === "unauthenticated"
+                    ? {
+                        ...draft,
+                        message: `Sign in with the configured GapCode executable and GAPCODE_HOME set to '${homePath}'.`,
+                      }
+                    : draft,
+                  catalog,
+                ),
               ),
             ),
           { concurrent: true },
@@ -323,7 +337,8 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
         Effect.zipWith(
           makePendingCodexProvider(settings.provider, PROVIDER_OPTIONS),
           currentCatalog,
-          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
+          (draft, catalog) =>
+            stampIdentity(withGapCodeAuthenticationSetup(applyCodexModelCatalog(draft, catalog))),
         ),
       checkProvider,
       enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
