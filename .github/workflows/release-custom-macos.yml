@@ -41,7 +41,7 @@ jobs:
           ref: ${{ inputs.release_commit }}
       - uses: ./.github/actions/setup-ci-deps
         with:
-          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+          install-args: --filter=@t3tools/desktop --filter=t3
       - name: Align package versions
         run: node scripts/update-release-package-versions.ts "${{ inputs.version }}"
       - name: Build JS bundle
