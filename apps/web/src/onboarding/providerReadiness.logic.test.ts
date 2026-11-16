@@ -73,6 +73,26 @@ describe("getOnboardingProviderState", () => {
 });
 
 describe("resolveOnboardingProviderLoginCommand", () => {
+  it("uses the isolated GapCode home when signing in", () => {
+    const provider = {
+      ...readyCodex,
+      driver: ProviderDriverKind.make("gapcode"),
+      instanceId: ProviderInstanceId.make("gapcode_work"),
+    };
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      providerInstances: {
+        [provider.instanceId]: {
+          driver: provider.driver,
+          config: { binaryPath: "C:\\Gap Code\\codex.exe" },
+        },
+      },
+    };
+    expect(resolveOnboardingProviderLoginCommand(provider, settings, "windows")).toBe(
+      "$env:GAPCODE_HOME = Join-Path $HOME '.gapcode-t3/gapcode_work'; & 'C:\\Gap Code\\codex.exe' login",
+    );
+  });
+
   it("uses the selected Codex account binary", () => {
     const provider = { ...readyCodex, instanceId: ProviderInstanceId.make("codex_work") };
 

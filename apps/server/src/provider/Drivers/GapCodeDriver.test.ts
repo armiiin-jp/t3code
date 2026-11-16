@@ -27,6 +27,7 @@ import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
 import * as CodexAdapterV2 from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import { GapCodeDriver } from "./GapCodeDriver.ts";
+import { gapCodeUsageReader } from "./codexUsage.ts";
 
 const layerDeps = ServerConfig.layerTest(process.cwd(), {
   prefix: "t3-gapcode-driver-maintenance-",
@@ -69,11 +70,42 @@ const noSpawn = ChildProcessSpawner.make(() =>
   Effect.die("Disabled GapCode must not spawn a process"),
 );
 
+const createManagedGapCodeLauncher = (tempDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const platform = HostProcess.Platform.defaultValue();
+    const launcher = NodePath.join(
+      tempDir,
+      ".gapcode",
+      "bin",
+      platform === "win32" ? "gapcode.cmd" : "gapcode",
+    );
+    const executable = NodePath.join(
+      tempDir,
+      ".gapcode",
+      "packages",
+      "standalone",
+      "releases",
+      "0.1.0",
+      "bin",
+      platform === "win32" ? "codex.exe" : "codex",
+    );
+    yield* fs.makeDirectory(NodePath.dirname(launcher), { recursive: true });
+    yield* fs.makeDirectory(NodePath.dirname(executable), { recursive: true });
+    yield* fs.writeFileString(
+      launcher,
+      `"%~dp0..\\packages\\standalone\\releases\\0.1.0\\bin\\${platform === "win32" ? "codex.exe" : "codex"}" %*`,
+    );
+    yield* fs.writeFileString(executable, "stub");
+    if (platform !== "win32") yield* fs.chmod(executable, 0o755);
+    return launcher;
+  });
+
 it.layer(testLayer)("GapCodeDriver", (it) => {
-  it.effect("offers the native updater only for the GapCode-managed launcher", () =>
+  it.effect("resolves the bundled executable and prepares an isolated GapCode home", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-gapcode-driver-" });
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-gapcode-isolation-" });
       const binaryPath = NodePath.join(
         tempDir,
         ".gapcode",
@@ -81,7 +113,77 @@ it.layer(testLayer)("GapCodeDriver", (it) => {
         HostProcess.Platform.defaultValue() === "win32" ? "gapcode.cmd" : "gapcode",
       );
       yield* fs.makeDirectory(NodePath.dirname(binaryPath), { recursive: true });
-      yield* fs.writeFileString(binaryPath, "stub");
+      const realBinary = NodePath.join(
+        tempDir,
+        ".gapcode",
+        "packages",
+        "standalone",
+        "releases",
+        "0.1.0",
+        "bin",
+        HostProcess.Platform.defaultValue() === "win32" ? "codex.exe" : "codex",
+      );
+      yield* fs.makeDirectory(NodePath.dirname(realBinary), { recursive: true });
+      yield* fs.writeFileString(realBinary, "stub");
+      if (HostProcess.Platform.defaultValue() !== "win32") yield* fs.chmod(realBinary, 0o755);
+      yield* fs.writeFileString(
+        binaryPath,
+        `"%~dp0..\\packages\\standalone\\releases\\0.1.0\\bin\\${HostProcess.Platform.defaultValue() === "win32" ? "codex.exe" : "codex"}" %*`,
+      );
+      const homePath = NodePath.join(tempDir, "account");
+      const instance = yield* GapCodeDriver.create({
+        instanceId: ProviderInstanceId.make("gapcode-isolated"),
+        displayName: "Isolated GapCode",
+        enabled: false,
+        environment: [],
+        config: {
+          ...GapCodeDriver.defaultConfig(),
+          binaryPath,
+          homePath,
+        },
+      });
+      expect(instance.auth).toBeDefined();
+      expect(yield* fs.stat(homePath).pipe(Effect.map((stat) => stat.type))).toBe("Directory");
+    }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, noSpawn), Effect.scoped),
+  );
+
+  it.effect("reads usage from the configured account home", () =>
+    Effect.gen(function* () {
+      const homePath = NodePath.resolve("isolated-gapcode-account");
+      const directories = yield* (
+        gapCodeUsageReader as Extract<typeof gapCodeUsageReader, { kind: "transcripts" }>
+      ).directories(
+        {
+          instanceId: ProviderInstanceId.make("gapcode-isolated"),
+          config: { ...GapCodeDriver.defaultConfig(), homePath },
+          environment: { GAPCODE_HOME: NodePath.resolve("other-account") },
+          configured: true,
+        },
+        { awaitRefresh: false },
+      );
+      expect(directories).toEqual([{ dir: NodePath.join(homePath, "sessions") }]);
+      const automatic = yield* (
+        gapCodeUsageReader as Extract<typeof gapCodeUsageReader, { kind: "transcripts" }>
+      ).directories(
+        {
+          instanceId: ProviderInstanceId.make("gapcode-secondary"),
+          config: GapCodeDriver.defaultConfig(),
+          environment: { GAPCODE_HOME: NodePath.resolve("default-account") },
+          configured: true,
+        },
+        { awaitRefresh: false },
+      );
+      expect(automatic).toEqual([
+        { dir: NodePath.join(NodeOS.homedir(), ".gapcode-t3", "gapcode-secondary", "sessions") },
+      ]);
+    }),
+  );
+
+  it.effect("offers the native updater only for the GapCode-managed launcher", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-gapcode-driver-" });
+      const binaryPath = yield* createManagedGapCodeLauncher(tempDir);
 
       const instance = yield* GapCodeDriver.create({
         instanceId: ProviderInstanceId.make("gapcode-managed"),
@@ -139,14 +241,7 @@ it.layer(testLayer)("GapCodeDriver", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-gapcode-driver-" });
-        const binaryPath = NodePath.join(
-          tempDir,
-          ".gapcode",
-          "bin",
-          HostProcess.Platform.defaultValue() === "win32" ? "gapcode.cmd" : "gapcode",
-        );
-        yield* fs.makeDirectory(NodePath.dirname(binaryPath), { recursive: true });
-        yield* fs.writeFileString(binaryPath, "stub");
+        const binaryPath = yield* createManagedGapCodeLauncher(tempDir);
 
         const mockHttpClient = HttpClient.make((request) => {
           if (request.url === "https://gapgpt.app/api/v1/cli/latest-version") {

@@ -772,6 +772,15 @@ export const GapCodeSettings = makeProviderSettingsSchema(
         providerSettingsForm: { placeholder: "gapcode", clearWhenEmpty: "omit" },
       }),
     ),
+    homePath: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "GAPCODE_HOME path",
+        description:
+          "Separate account and data directory. Additional instances get their own directory automatically.",
+        providerSettingsForm: { placeholder: "~/.gapcode-personal", clearWhenEmpty: "omit" },
+      }),
+    ),
     launchArgs: TrimmedString.pipe(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
@@ -785,7 +794,7 @@ export const GapCodeSettings = makeProviderSettingsSchema(
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
   },
-  { order: ["binaryPath", "launchArgs"] },
+  { order: ["binaryPath", "homePath", "launchArgs"] },
 );
 export type GapCodeSettings = typeof GapCodeSettings.Type;
 

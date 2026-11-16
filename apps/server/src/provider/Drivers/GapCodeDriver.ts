@@ -1,10 +1,13 @@
-/**
- * GapCodeDriver reuses the Codex app-server protocol exposed by GapCode's CLI.
- * The GapCode launcher supplies its own GAPCODE_HOME, so this driver leaves
- * Codex home and shadow-home handling out of the process environment.
- */
-import { CodexSettings, GapCodeSettings, ProviderDriverKind } from "@t3tools/contracts";
+/** GapCodeDriver reuses the Codex app-server protocol exposed by GapCode's CLI. */
+import {
+  CodexSettings,
+  GapCodeSettings,
+  ProviderDriverKind,
+  ProviderSetupError,
+} from "@t3tools/contracts";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Duration from "effect/Duration";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -25,6 +28,7 @@ import {
 } from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import { resolveCommandPath } from "@t3tools/shared/shell";
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
 import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
@@ -58,6 +62,7 @@ import {
 import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import { gapCodeUsageReader } from "./codexUsage.ts";
+import * as ProviderAuthFlow from "@t3tools/provider-core/server/providerAuthFlow";
 
 const decodeGapCodeSettings = Schema.decodeSync(GapCodeSettings);
 const DRIVER_KIND = ProviderDriverKind.make("gapcode");
@@ -156,6 +161,7 @@ function toCodexSettings(config: GapCodeSettings): CodexSettings {
 
 export type GapCodeDriverEnv =
   | CodexAdapterV2DriverEnv
+  | SecureRandom.SecureRandom
   | ProviderHost.ProviderHost
   | ChildProcessSpawner.ChildProcessSpawner
   | FileSystem.FileSystem
@@ -195,6 +201,62 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
     const providerEnv = { ...processEnv };
     delete providerEnv.CODEX_HOME;
     delete providerEnv.T3CODE_CODEX_LAUNCH_ARGS;
+    const home = yield* HostProcess.HomeDirectory;
+    const configuredBinary = expandHomePath(config.binaryPath, home);
+    const resolvedBinary =
+      (yield* resolveCommandPath(configuredBinary, { env: providerEnv })) ?? configuredBinary;
+    let launchBinary = resolvedBinary;
+    if (isGapCodeNativeCommandPath(resolvedBinary) || /\.cmd$/i.test(resolvedBinary)) {
+      const launcher = yield* fileSystem.readFileString(resolvedBinary).pipe(Effect.option);
+      const bundledExecutable = Option.isSome(launcher)
+        ? /packages[\\/]standalone[\\/]releases[\\/][^\s"']+[\\/]bin[\\/](?:codex\.exe|codex)/i.exec(
+            launcher.value,
+          )?.[0]
+        : undefined;
+      if (bundledExecutable) {
+        const candidate = pathService.resolve(
+          pathService.dirname(resolvedBinary),
+          "..",
+          bundledExecutable,
+        );
+        const stat = yield* fileSystem.stat(candidate).pipe(Effect.option);
+        if (Option.isSome(stat) && stat.value.type === "File") launchBinary = candidate;
+      }
+    }
+    const configuredHome = config.homePath.trim()
+      ? expandHomePath(config.homePath, home)
+      : instanceId === "gapcode"
+        ? providerEnv.GAPCODE_HOME?.trim() || pathService.join(home, ".gapcode")
+        : pathService.join(home, ".gapcode-t3", String(instanceId));
+    const homePath = pathService.resolve(configuredHome);
+    if (homePath) {
+      if (
+        launchBinary === resolvedBinary &&
+        (isGapCodeNativeCommandPath(resolvedBinary) || /\.cmd$/i.test(resolvedBinary))
+      ) {
+        return yield* new ProviderDriverError({
+          driver: DRIVER_KIND,
+          instanceId,
+          detail:
+            "Could not find GapCode's executable behind its launcher, so this account cannot be isolated safely.",
+        });
+      }
+      yield* fileSystem.makeDirectory(homePath, { recursive: true }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ProviderDriverError({
+              driver: DRIVER_KIND,
+              instanceId,
+              detail: `Failed to create GapCode home '${homePath}'.`,
+              cause,
+            }),
+        ),
+      );
+      for (const name of Object.keys(providerEnv)) {
+        if (name.toUpperCase() === "GAPCODE_HOME") delete providerEnv[name];
+      }
+      providerEnv.GAPCODE_HOME = homePath;
+    }
     const continuationIdentity = defaultProviderContinuationIdentity({
       driverKind: DRIVER_KIND,
       instanceId,
@@ -208,12 +270,12 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
     });
     const effectiveConfig = {
       ...toCodexSettings({ ...config, enabled }),
-      binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
+      binaryPath: launchBinary,
     } satisfies CodexSettings;
     const gapCodeMaintenanceResolver = makeGapCodeMaintenanceResolver(httpClient);
     const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
       resolveProviderMaintenanceCapabilitiesEffect(gapCodeMaintenanceResolver, {
-        binaryPath: effectiveConfig.binaryPath,
+        binaryPath: configuredBinary,
         env: providerEnv,
       }).pipe(
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
@@ -232,7 +294,18 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
             PROVIDER_OPTIONS,
           ),
           currentCatalog,
-          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
+          (draft, catalog) =>
+            stampIdentity(
+              applyCodexModelCatalog(
+                homePath && draft.auth.status === "unauthenticated"
+                  ? {
+                      ...draft,
+                      message: `Sign in with the configured GapCode executable and GAPCODE_HOME set to '${homePath}'.`,
+                    }
+                  : draft,
+                catalog,
+              ),
+            ),
           { concurrent: true },
         ),
       ),
@@ -276,6 +349,89 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
       ),
     );
     const models = snapshot.getSnapshot.pipe(Effect.map((provider) => provider.models));
+    const auth = yield* ProviderAuthFlow.make({
+      instanceId,
+      credentialBinding: { owner: "provider", key: `gapcode:${homePath}` },
+      methods: Effect.succeed([
+        { id: "gapgpt", name: "Sign in with GapGPT", description: null, type: "agent" as const },
+      ]),
+      authenticate: (_method, context) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const { client } = yield* withCodexAppServerClient({
+              binaryPath: effectiveConfig.binaryPath,
+              launchArgs: effectiveConfig.launchArgs,
+              cwd: process.cwd(),
+              environment: providerEnv,
+            });
+            const completed = yield* Deferred.make<{
+              readonly loginId?: string | null;
+              readonly success: boolean;
+            }>();
+            yield* client.handleServerNotification("account/login/completed", (payload) =>
+              Deferred.succeed(completed, payload).pipe(Effect.asVoid),
+            );
+            const login = yield* client.request("account/login/start", { type: "chatgpt" });
+            if (login.type !== "chatgpt") {
+              return yield* new ProviderSetupError({
+                instanceId,
+                operation: "start",
+                detail: "GapCode returned an unsupported sign-in response.",
+              });
+            }
+            yield* context.setInteraction({
+              type: "browser",
+              id: login.loginId,
+              url: login.authUrl,
+              requiresConsent: false,
+            });
+            const notification = yield* Deferred.await(completed);
+            if (notification.loginId !== login.loginId || !notification.success) {
+              return yield* new ProviderSetupError({
+                instanceId,
+                operation: "start",
+                detail: "GapCode sign-in did not complete.",
+              });
+            }
+            yield* context.verifying;
+            yield* snapshot.refresh.pipe(Effect.ignoreCause({ log: true }));
+          }).pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+            Effect.mapError(
+              (cause) =>
+                new ProviderSetupError({
+                  instanceId,
+                  operation: "start",
+                  detail: "GapCode sign-in failed. Try again.",
+                  cause,
+                }),
+            ),
+          ),
+        ),
+      logout: Effect.scoped(
+        Effect.gen(function* () {
+          const { client } = yield* withCodexAppServerClient({
+            binaryPath: effectiveConfig.binaryPath,
+            launchArgs: effectiveConfig.launchArgs,
+            cwd: process.cwd(),
+            environment: providerEnv,
+          });
+          yield* client.request("account/logout", undefined);
+          yield* snapshot.refresh.pipe(Effect.ignoreCause({ log: true }));
+        }).pipe(
+          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+          Effect.mapError(
+            (cause) =>
+              new ProviderSetupError({
+                instanceId,
+                operation: "logout",
+                detail: "GapCode sign-out failed.",
+                cause,
+              }),
+          ),
+        ),
+      ),
+    });
     // GapGPT proxy notifications report pooled limits, so refresh the user's plan quota after turns.
     const refreshUsageLimitsQueue = yield* Queue.sliding<void>(1);
     yield* Stream.fromQueue(refreshUsageLimitsQueue).pipe(
@@ -288,9 +444,15 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
         instanceId,
         displayName,
         accentColor,
-        environment: environment.filter(
-          (v) => v.name !== "CODEX_HOME" && v.name !== "T3CODE_CODEX_LAUNCH_ARGS",
-        ),
+        environment: [
+          ...environment.filter(
+            (v) =>
+              v.name !== "CODEX_HOME" &&
+              v.name !== "T3CODE_CODEX_LAUNCH_ARGS" &&
+              (!homePath || v.name.toUpperCase() !== "GAPCODE_HOME"),
+          ),
+          ...(homePath ? [{ name: "GAPCODE_HOME", value: homePath, sensitive: false }] : []),
+        ],
         enabled,
         config: effectiveConfig,
       },
@@ -310,7 +472,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
       ),
     );
     const textGeneration = yield* makeCodexTextGeneration(effectiveConfig, providerEnv, models);
-    const accountKey = `gapcode:${normalizeCommandPath(effectiveConfig.binaryPath || "gapcode")}`;
+    const accountKey = `gapcode:${normalizeCommandPath(homePath || providerEnv.GAPCODE_HOME || effectiveConfig.binaryPath || "gapcode")}`;
     const consumeResetCredit: NonNullable<ProviderInstance["consumeResetCredit"]> = () =>
       resetCreditCoordinator
         .redeem(accountKey, (idempotencyKey) =>
@@ -398,6 +560,7 @@ export const GapCodeDriver: ProviderDriver<GapCodeSettings, GapCodeDriverEnv, Pa
       consumeResetCredit,
       orchestrationAdapter,
       textGeneration,
+      auth,
     } satisfies ProviderInstance;
   }),
 };

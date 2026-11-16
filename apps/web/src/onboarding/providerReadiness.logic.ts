@@ -88,7 +88,25 @@ export function resolveOnboardingProviderLoginCommand(
   if (provider.driver === "gapcode") {
     const config = decodeGapCodeSettings(instance?.config ?? {});
     const binaryPath = Option.isSome(config) ? config.value.binaryPath : "gapcode";
-    return `${quoteProviderBinary(binaryPath, "gapcode", platform)} login`;
+    const command = `${quoteProviderBinary(binaryPath, "gapcode", platform)} login`;
+    const homePath = Option.isSome(config)
+      ? config.value.homePath ||
+        (provider.instanceId === "gapcode" ? "" : `~/.gapcode-t3/${provider.instanceId}`)
+      : "";
+    if (!homePath) return command;
+    if (platform === "windows") {
+      const value = homePath.replaceAll("'", "''");
+      const home =
+        homePath.startsWith("~/") || homePath.startsWith("~\\")
+          ? `Join-Path $HOME '${value.slice(2)}'`
+          : `'${value}'`;
+      return `$env:GAPCODE_HOME = ${home}; ${command}`;
+    }
+    const quoted = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
+    const home = homePath.startsWith("~/")
+      ? `"$HOME"/${quoted(homePath.slice(2))}`
+      : quoted(homePath);
+    return `GAPCODE_HOME=${home} ${command}`;
   }
 
   return provider.driver;

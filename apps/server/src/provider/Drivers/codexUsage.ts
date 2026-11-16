@@ -594,13 +594,25 @@ export const gapCodeUsageReader: ProviderUsageReader<GapCodeSettings, Path.Path>
   kind: "transcripts",
   provider: "gapcode",
   format: gapCodeUsageFormat,
-  directories: Effect.fn("gapCodeUsageReader.directories")(function* ({ config, environment }) {
+  directories: Effect.fn("gapCodeUsageReader.directories")(function* ({
+    config,
+    environment,
+    instanceId,
+  }) {
     if (config === undefined) return [];
     const path = yield* Path.Path;
     const home = yield* HostProcess.HomeDirectory;
-    const configuredHome = environment.GAPCODE_HOME?.trim();
+    const configuredHome =
+      config.homePath.trim() ||
+      (instanceId === "gapcode" ? environment.GAPCODE_HOME?.trim() : undefined);
     const gapCodeHome = path.resolve(
-      expandHomePath(configuredHome || path.join(home, ".gapcode"), home),
+      expandHomePath(
+        configuredHome ||
+          (instanceId === "gapcode"
+            ? path.join(home, ".gapcode")
+            : path.join(home, ".gapcode-t3", instanceId)),
+        home,
+      ),
     );
     return [{ dir: path.resolve(gapCodeHome, "sessions") }];
   }),
