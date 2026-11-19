@@ -4,7 +4,7 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked against upstream `main` at `5dd8cde083`, fork `main` at `a4091c18c4`, and `custom/main` at `84108420cc` before the Mac-workflow rollback and release sync (2026-11-16).
+Baseline checked against upstream `main` at `6b45d90047`, fork `main` at `99d0601aea`, and `custom/main` at `8e292a9c82` before the 2026-11-19 upstream sync.
 
 ## Change inventory
 
