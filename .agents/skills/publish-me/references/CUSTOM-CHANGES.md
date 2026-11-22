@@ -103,7 +103,7 @@ Baseline checked against upstream `main` at `f9b19a7f85` and fork `main`/`custom
 - Label GapCode as self-added where the provider catalog exposes that status.
   Use GapCode wording for GapCode feedback IDs and provider-specific messages.
 - Unpack Windows server ASAR native `.dll`, `.exe`, `.so`, and `.dylib` files
-  from both the archive root and subdirectories, and allow the 96-file packaged
+  from both the archive root and subdirectories, and allow the 104-file packaged
   payload limit.
 - Ignore the local `.tools/` directory so a folder-specific Node installation
   does not enter commits.
