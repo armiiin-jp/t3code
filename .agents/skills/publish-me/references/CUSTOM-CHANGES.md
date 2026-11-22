@@ -4,7 +4,7 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Baseline checked against upstream `main` at `33d48867f8`, fork `main` at `99d0601aea`, and `custom/main` at `8e292a9c82` before the 2026-11-19 upstream sync.
+Baseline checked against upstream `main` at `f9b19a7f85` and fork `main`/`custom/main` at `b5c2731267` before the 2026-11-22 upstream sync.
 
 ## Change inventory
 
@@ -14,10 +14,10 @@ Baseline checked against upstream `main` at `33d48867f8`, fork `main` at `99d060
 | GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                |
 | GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.         |
 | Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                |
-| RTL and mixed-script text          | Improves direction handling and alignment for bidirectional composer and chat content.                  |
-| Custom-theme environment artwork   | Pending on `custom/main`; a separate feature branch contains the artwork and accent-color work.         |
+| RTL and mixed-script text          | Adds automatic direction fallback and RTL-aware placeholder alignment to the composer.                  |
+| Custom-theme environment artwork   | Enables Dev and Nightly artwork previews for user-created themes using their accent color.              |
 | Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes above the Nightly feed floor. |
-| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, preview, tooling, and upstream-sync fixes.               |
+| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, local-tooling, and upstream-sync fixes.                  |
 
 ## Detailed changes
 
@@ -80,26 +80,20 @@ Baseline checked against upstream `main` at `33d48867f8`, fork `main` at `99d060
 
 ## Right-to-left and mixed-script text
 
-- Support bidirectional text in the composer and rendered chat responses.
-- Set direction from the active editor line, fall back to automatic direction
-  when the line has no strong direction, and make placeholders follow text
+- Set the composer editor direction from its active line and fall back to
+  automatic direction when the line has no strong direction.
+- Let placeholder text choose its own direction and align it to the writing
   direction.
-- Keep mixed-script Markdown list markers aligned and retain the bidi coverage
-  tests.
+- Keep browser coverage for mixed-script Markdown lists and composer input.
 
-## Environment artwork on custom themes (pending)
+## Environment artwork on custom themes
 
-- The implementation is on `feat/custom-theme-environment-identification` and
-  is not included in `custom/main`. It remains pending until that branch is
-  intentionally merged.
-- The pending change allows environment-identification artwork modes on
-  user-created themes and previews, deriving the artwork colors from the custom
-  theme accent and using matching colors on the composer send button.
-- Preserve the existing built-in theme artwork and identification modes when
-  merging the pending change.
-- A startup T3 icon accent glow was added earlier, then removed by commit
-  `44796f790e`. It is **not** active on the current branch; do not re-add it
-  unless requested.
+- Allow environment-identification artwork in user-created themes and theme
+  previews, deriving its colors from the custom theme accent.
+- Use the same artwork colors for the composer send button and preserve the
+  built-in theme artwork and identification modes.
+- A startup T3 icon accent glow was removed by commit `44796f790e`; it is not
+  active on this branch.
 
 ## Smaller UI and maintenance changes
 
@@ -108,11 +102,9 @@ Baseline checked against upstream `main` at `33d48867f8`, fork `main` at `99d060
   sub-label.
 - Label GapCode as self-added where the provider catalog exposes that status.
   Use GapCode wording for GapCode feedback IDs and provider-specific messages.
-- Keep Windows server ASAR unpack patterns for native `.dll`, `.exe`, `.so`,
-  and `.dylib` files working when those files are at the archive root as well as
-  in subdirectories.
-- Keep the desktop preview annotation styling and remove the stale Markdown
-  build permission adjustment.
+- Unpack Windows server ASAR native `.dll`, `.exe`, `.so`, and `.dylib` files
+  from both the archive root and subdirectories, and allow the 96-file packaged
+  payload limit.
 - Ignore the local `.tools/` directory so a folder-specific Node installation
   does not enter commits.
 - `.github/workflows/sync-upstream.yml` updates this fork's `main` from the
