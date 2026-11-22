@@ -1,9 +1,21 @@
 import { ProviderDriverKind, ProviderInstanceId } from "@t3tools/contracts";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup as renderToHtml } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
+import { GTProvider, initializeGT } from "gt-react";
+import type { ReactNode } from "react";
 
 import { Combobox } from "../ui/combobox";
 import { ModelListRow } from "./ModelListRow";
+
+initializeGT({ defaultLocale: "en", locales: ["en"] });
+
+function renderToStaticMarkup(node: ReactNode) {
+  return renderToHtml(
+    <GTProvider locale="en" translations={{}}>
+      {node}
+    </GTProvider>,
+  );
+}
 
 function renderModelRow(subProvider: string) {
   return renderToStaticMarkup(

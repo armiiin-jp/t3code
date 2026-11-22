@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup as renderToHtml } from "react-dom/server";
+import { GTProvider, initializeGT } from "gt-react";
+import type { ReactNode } from "react";
+
 import ChatMarkdown from "./ChatMarkdown";
+
+initializeGT({ defaultLocale: "en", locales: ["en"] });
+
+function renderToStaticMarkup(node: ReactNode) {
+  return renderToHtml(
+    <GTProvider locale="en" translations={{}}>
+      {node}
+    </GTProvider>,
+  );
+}
 
 describe("ChatMarkdown RTL support and bidirectional text layout", () => {
   it("renders pure Persian paragraph with dir='rtl'", () => {
