@@ -124,7 +124,7 @@ describe("parseCodexLine", () => {
       parseCodexLine(line.replace("2026-08-01T05:17:49.919Z", "invalid"), cumulativeState),
     ).toBeNull();
     expect(parseCodexLine(line, cumulativeState)?.totals.outputTokens).toBe(20);
-    expect(codexUsageFormat.readMalformedRecords?.(cumulativeState)).toBe(0);
+    expect(codexUsageFormat.readMalformedRecords?.(cumulativeState).length).toBe(0);
   });
 
   it("ignores stale changed requests but counts equal requests when totals advance across contexts", () => {
@@ -167,7 +167,7 @@ describe("parseCodexLine", () => {
         totals: { uncachedInputTokens: 100, outputTokens: 20 },
       });
     }
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
   });
 
   it.each([false, true])(
@@ -186,7 +186,7 @@ describe("parseCodexLine", () => {
       expect(
         parseCodexLine(counted(counters(10, 2), counters(130, 27)), state)?.totals.outputTokens,
       ).toBe(2);
-      expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
     },
   );
 
@@ -213,10 +213,10 @@ describe("parseCodexLine", () => {
       total[field] += 1;
       if (field === "input_tokens" || field === "output_tokens") total.total_tokens += 1;
       expect(parseCodexLine(counted(request, total), state), field).toBeNull();
-      expect(codexUsageFormat.readMalformedRecords?.(state), field).toBe(1);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length, field).toBe(1);
       for (const key of fields) total[key] += request[key];
       expect(parseCodexLine(counted(request, total), state)?.totals.outputTokens, field).toBe(20);
-      expect(codexUsageFormat.readMalformedRecords?.(state), field).toBe(1);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length, field).toBe(1);
     }
   });
 
@@ -276,7 +276,7 @@ describe("parseCodexLine", () => {
           state,
         )?.totals.outputTokens,
       ).toBe(2);
-      expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
     },
   );
 
@@ -333,7 +333,7 @@ describe("parseCodexLine", () => {
       reasoning_output_tokens: 5,
     };
     expect(parseCodexLine(counted(request, cumulative), state)).toBeNull();
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(1);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(1);
     expect(state.lastCumulativeUsage).toEqual(cumulative);
   });
 
@@ -353,14 +353,14 @@ describe("parseCodexLine", () => {
         state,
       ),
     ).toBeNull();
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(1);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(1);
     expect(
       parseCodexLine(
         counted(request, malformed === "request" ? counters(300, 60) : counters(200, 40)),
         state,
       )?.totals.outputTokens,
     ).toBe(20);
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(1);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(1);
   });
 
   it("bills only the reported request when usage records sit between reconciling snapshots", () => {
@@ -546,7 +546,7 @@ describe("parseCodexLine", () => {
       parseCodexLine(counted(counters(10, 2), { ...counters(10, 2), total_tokens: 1012 }), state)
         ?.totals.outputTokens,
     ).toBe(2);
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
   });
 
   it.each([false, true])(
@@ -562,7 +562,7 @@ describe("parseCodexLine", () => {
       expect(
         parseCodexLine(counted(counters(30, 5), counters(30, 5)), state)?.totals.outputTokens,
       ).toBe(5);
-      expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
     },
   );
 
@@ -576,7 +576,7 @@ describe("parseCodexLine", () => {
     expect(
       parseCodexLine(counted(counters(10, 2), counters(40, 7)), state)?.totals.outputTokens,
     ).toBe(2);
-    expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+    expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
   });
 
   const later = (line: string) => line.replace("05:17:49.919Z", "07:17:49.919Z");
@@ -609,7 +609,10 @@ describe("parseCodexLine", () => {
       return record === null ? 0 : totalTokens(record.totals);
     });
 
-    expect({ processed: billed, skipped: codexUsageFormat.readMalformedRecords?.(state) }).toEqual({
+    expect({
+      processed: billed,
+      skipped: codexUsageFormat.readMalformedRecords?.(state).length,
+    }).toEqual({
       processed,
       skipped,
     });
@@ -701,7 +704,10 @@ describe("parseCodexLine", () => {
       return record === null ? 0 : totalTokens(record.totals);
     });
 
-    expect({ processed: billed, skipped: codexUsageFormat.readMalformedRecords?.(state) }).toEqual({
+    expect({
+      processed: billed,
+      skipped: codexUsageFormat.readMalformedRecords?.(state).length,
+    }).toEqual({
       processed,
       skipped,
     });
@@ -723,7 +729,7 @@ describe("parseCodexLine", () => {
 
     expect({
       processed,
-      skipped: codexUsageFormat.readMalformedRecords?.(state),
+      skipped: codexUsageFormat.readMalformedRecords?.(state).length,
     }).toEqual({ processed: [120, 120, 0, 120], skipped: 0 });
   });
 
@@ -741,7 +747,7 @@ describe("parseCodexLine", () => {
       const record = parseCodexLine(line, state);
       return record === null ? 0 : totalTokens(record.totals);
     });
-    expect({ processed, skipped: codexUsageFormat.readMalformedRecords?.(state) }).toEqual({
+    expect({ processed, skipped: codexUsageFormat.readMalformedRecords?.(state).length }).toEqual({
       processed: [120, 120, 120, 35],
       skipped: 0,
     });
@@ -782,7 +788,7 @@ describe("parseCodexLine", () => {
 
       expect({
         processed: billed,
-        skipped: codexUsageFormat.readMalformedRecords?.(state),
+        skipped: codexUsageFormat.readMalformedRecords?.(state).length,
       }).toEqual({ processed, skipped: 0 });
     },
   );
@@ -803,7 +809,7 @@ describe("parseCodexLine", () => {
 
     expect({
       processed,
-      skipped: codexUsageFormat.readMalformedRecords?.(state),
+      skipped: codexUsageFormat.readMalformedRecords?.(state).length,
     }).toEqual({ processed: [120, 0, 120, 35], skipped: 1 });
   });
 
@@ -943,7 +949,7 @@ describe("parseCodexLine", () => {
         state,
       );
       expect(next).not.toBeNull();
-      expect(codexUsageFormat.readMalformedRecords?.(state)).toBe(0);
+      expect(codexUsageFormat.readMalformedRecords?.(state).length).toBe(0);
     });
 
     it("recognizes subagent spawns without forked_from_id", () => {
@@ -994,7 +1000,7 @@ describe("parseCodexLine", () => {
 
       expect({
         processed: [first, copied, afterBurst, next],
-        skipped: codexUsageFormat.readMalformedRecords?.(state),
+        skipped: codexUsageFormat.readMalformedRecords?.(state).length,
       }).toEqual({ processed: [120, 0, 120, 35], skipped: 0 });
     });
 
@@ -1015,7 +1021,7 @@ describe("parseCodexLine", () => {
 
       expect({
         processed: billed.map((record) => totalTokens(record.totals)),
-        skipped: codexUsageFormat.readMalformedRecords?.(state),
+        skipped: codexUsageFormat.readMalformedRecords?.(state).length,
       }).toEqual({ processed: [160, 230], skipped: 0 });
     });
   });
