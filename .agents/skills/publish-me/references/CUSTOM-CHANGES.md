@@ -8,16 +8,16 @@ Baseline checked against upstream `main` at `f9b19a7f85` and fork `main`/`custom
 
 ## Change inventory
 
-| Change                             | Description                                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.            |
-| GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                |
-| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.         |
-| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                |
-| RTL and mixed-script text          | Adds automatic direction fallback and RTL-aware placeholder alignment to the composer.                  |
-| Custom-theme environment artwork   | Enables Dev and Nightly artwork previews for user-created themes using their accent color.              |
-| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes above the Nightly feed floor. |
-| Smaller UI and maintenance changes | Preserves provider-label, feedback, packaging, local-tooling, and upstream-sync fixes.                  |
+| Change                             | Description                                                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| GapCode provider                   | Adds GapCode as a distinct provider with separate identity, settings, usage, and UI support.                         |
+| GapCode account isolation          | Gives each additional instance its own home, GapGPT sign-in, and matching session usage.                             |
+| GapCode service tier               | Shares Codex service-tier indicators and exposes GapCode tier selection in the composer footer.                      |
+| Composer motion and controls       | Adds scroll-aware composer collapse, smooth transitions, and responsive footer controls.                             |
+| RTL and mixed-script text          | Adds automatic direction fallback and RTL-aware placeholder alignment to the composer.                               |
+| Custom-theme environment artwork   | Enables Dev and Nightly artwork previews for user-created themes using their accent color.                           |
+| Publish-me project skill           | Publishes Windows x64 desktop installers and Linux x64/arm64 CLI runtimes above the Nightly feed floor.              |
+| Smaller UI and maintenance changes | Preserves provider-label, feedback, Windows packaging with a 112-file limit, local-tooling, and upstream-sync fixes. |
 
 ## Detailed changes
 
@@ -103,7 +103,7 @@ Baseline checked against upstream `main` at `f9b19a7f85` and fork `main`/`custom
 - Label GapCode as self-added where the provider catalog exposes that status.
   Use GapCode wording for GapCode feedback IDs and provider-specific messages.
 - Unpack Windows server ASAR native `.dll`, `.exe`, `.so`, and `.dylib` files
-  from both the archive root and subdirectories, and allow the 104-file packaged
+  from both the archive root and subdirectories, and allow the 112-file packaged
   payload limit.
 - Ignore the local `.tools/` directory so a folder-specific Node installation
   does not enter commits.
