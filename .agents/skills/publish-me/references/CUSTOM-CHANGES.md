@@ -4,7 +4,7 @@ This is the handoff list for changes added to this fork that are not part of
 upstream `main`. Review each item when syncing upstream or preparing a release. Update this inventory whenever a custom change is added or removed: change the grid entry and its matching section together.
 Some changes adapt upstream code so these features keep working after refactors.
 
-Fork-specific behavior reconciled against upstream `main` at `5a563f8df4`, synced through fork `main` commit `1d89126c2e`, and integrated into `custom/main` at `6430f78f22` on 2026-11-26.
+Fork-specific behavior reconciled against upstream `main` at `809d6dd137`, synced through fork `main` commit `7729482185`, and integrated into `custom/main` at `069a34ecf7` on 2026-11-28.
 
 ## Change inventory
 
